@@ -1,61 +1,56 @@
 import orderModel from "../models/order.model.js"
 import userModel from "../models/user.model.js"
-import stripe from "stripe"
+import Stripe from "stripe"
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 // @desc Place new order
 // @route POST /api/order/place
 // @access Private
 const placeOrder = async (req, res) => {
+
+  const frontend_url = "http://localhost:5173"
+
   try {
-    let { items, address, amount, paymentMethod } = req.body
-    const userId = req.user._id
-
-    if (!items || items.length === 0)
-      return res.status(400).json({ success: false, message: "No items in order" })
-
-    const detailedItems = []
-    amount = 0
-
-    for (const item of items) {
-      const food = await foodModel.findById(item.foodId)
-
-      if (!food)
-        return res.status(400).json({
-          success: false,
-          message: `Food item not found: ${item.foodId}`
-        })
-
-      const itemTotal = Math.round(food.price * item.quantity * 100) / 100
-      amount += itemTotal
-
-      detailedItems.push({
-        foodId: food._id,
-        name: food.name,
-        quantity: item.quantity,
-        price: food.price,
-        total: itemTotal
-      })
-    }
-
     // Save order to MongoDB
     const newOrder = new orderModel({
-      userId,
-      items: detailedItems,
-      address,
-      amount,
+      userId: req.body.userId,
+      items: req.body.items,
+      amount:req.body.amount,
+      address: req.body.address,
       status: "pending",
-      payment: {
-        method: paymentMethod,
-        status: "pending"
-      }
     })
-
     await newOrder.save()
+    await userModel.findByIdAndUpdate(req.body.userId, {cartData:{}})
 
-    res.status(201).json({
-      success: true,
-      order: newOrder
+    const line_items = req.body.items.map((item)=>({
+      price_data:{
+        currency:"usd",
+        product_data:{
+          name:item.name
+        },
+        unit_amount:item.price*100
+      },
+      quantity:item.quantity
+    }))
+    line_items.push({
+      price_data:{
+        currency:"usd",
+        product_data:{
+          name:"Delivery Charges"
+        },
+        unit_amount:2*100
+      },
+      quantity:1
     })
+
+    const session = await stripe.checkout.session.create({
+      line_items:line_items,
+      mode:"payment",
+      success_url:`${frontend_url}/verify?success=true&orderId=${newOrder._id}`,
+      cancel_url:`${frontend_url}/verify?success=false&orderId=${newOrder._id}`
+    })
+    res.json({success:true, session_url:session.url})
 
   } catch (error) {
     console.error("Error creating order:", error)

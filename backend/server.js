@@ -8,8 +8,8 @@ import cartRouter from "./routes/cart.route.js"
 import orderRouter from "./routes/order.route.js"
 import path from "path"
 import { fileURLToPath } from "url"
-import Razorpay from "razorpay"
-import paymentRouter from "./routes/payment.route.js"
+// import Razorpay from "razorpay"
+// import paymentRouter from "./routes/payment.route.js"
 import dotenv from "dotenv"
 
 const __filename = fileURLToPath(import.meta.url);
@@ -35,15 +35,15 @@ app.use("/api/cart", cartRouter)
 app.use("/api/order", orderRouter)
 
 
-// RAZORPAY API KEYS
-export const instance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-})
+// // RAZORPAY API KEYS
+// export const instance = new Razorpay({
+//   key_id: process.env.RAZORPAY_KEY_ID,
+//   key_secret: process.env.RAZORPAY_KEY_SECRET
+// })
 
-app.post("/payment/process", (req, res)=>{
-  res.status(200).json({success:true})
-})
+// app.post("/payment/process", (req, res)=>{
+//   res.status(200).json({success:true})
+// })
 
 app.get('/place', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
