@@ -1,6 +1,8 @@
 import orderModel from "../models/order.model.js"
 import userModel from "../models/user.model.js"
 import Stripe from "stripe"
+import { generateInvoice } from "../config/generateInvoice.js"
+import { sendInvoiceEmail } from "../config/sendEmail.js"
  
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
  
@@ -90,7 +92,19 @@ const verifyOrder = async (req, res) => {
   const {orderId, success} = req.body
   try {
     if(success == "true") {
-      await orderModel.findByIdAndUpdate(orderId, {payment:true})
+      const updatedOrder = await orderModel.findByIdAndUpdate(orderId, {payment:true}, {new:true})
+      const user = await userModel.findById(updatedOrder.userId)
+      
+      // Generate and send invoice
+      try {
+        const invoicePath = await generateInvoice(updatedOrder, user)
+        await sendInvoiceEmail(user.email, invoicePath, updatedOrder)
+        console.log("Invoice generated and sent successfully")
+      } catch (pdfError) {
+        console.error("Error generating/sending invoice:", pdfError)
+        // Don't fail the order if PDF generation fails
+      }
+      
       res.json({success:true, message:"PAID"})
     }
     else {
