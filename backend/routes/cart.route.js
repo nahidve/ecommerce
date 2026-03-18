@@ -17,6 +17,6 @@ cartRouter.post("/remove", authMiddleware, removeFromCart)
 //@desc Get Cart
 //@route POST /api/cart/get
 //@access Private
-cartRouter.get("/get", authMiddleware, getCart)
+cartRouter.post("/get", authMiddleware, getCart)
 
 export default cartRouter

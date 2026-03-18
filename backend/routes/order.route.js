@@ -1,6 +1,6 @@
 import express from "express"
 import authMiddleware from "../middleware/auth.middleware.js"
-import { placeOrder, cancelOrder, getMyOrders, getAllOrders, updateOrderStatus } from "../controllers/order.controller.js"
+import { placeOrder, cancelOrder, getMyOrders, getAllOrders, updateOrderStatus, verifyOrder } from "../controllers/order.controller.js"
 // import adminMiddleware from "../middleware/admin.middleware.js"
 
 const orderRouter = express.Router()
@@ -9,6 +9,8 @@ const orderRouter = express.Router()
 // @route POST /api/order/place
 // @access Private
 orderRouter.post("/place", authMiddleware, placeOrder)
+
+orderRouter.post("/verify", verifyOrder)
 
 // @desc Get my orders
 // @route GET /api/order/me
