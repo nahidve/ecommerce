@@ -11,7 +11,7 @@ export const generateInvoice = async (order, userDetails) => {
       const doc = new PDFDocument({ margin: 50 });
 
       const fileName = `invoice-${order._id}.pdf`;
-      const uploadDir = path.join(__dirname, "../uploads");
+      const uploadDir = path.join(__dirname, "../invoices");
       const filePath = path.join(uploadDir, fileName);
 
       // Ensure uploads directory exists
