@@ -5,6 +5,7 @@ import { generateInvoice } from "../config/generateInvoice.js"
 import { sendInvoiceEmail } from "../config/sendEmail.js"
  
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+//console.log("CONTROLLER KEY:", process.env.STRIPE_SECRET_KEY)
  
 // @desc Place new order
 // @route POST /api/order/place

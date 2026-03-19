@@ -1,0 +1,25 @@
+.verify-otp {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 80vh;
+}
+
+.verify-otp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 300px;
+}
+
+.verify-otp-form input {
+  padding: 10px;
+  font-size: 16px;
+}
+
+.verify-otp-form button {
+  padding: 10px;
+  background-color: black;
+  color: white;
+  cursor: pointer;
+}

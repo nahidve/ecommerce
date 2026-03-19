@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import fs from "fs";
 
-// Create transporter
+// ================= TRANSPORTER =================
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Verify transporter once on startup
+// Verify transporter on startup
 transporter.verify((error, success) => {
   if (error) {
     console.error("Email service error:", error);
@@ -19,16 +19,17 @@ transporter.verify((error, success) => {
   }
 });
 
+// ================= SEND INVOICE EMAIL =================
 export const sendInvoiceEmail = async (userEmail, invoicePath, orderDetails) => {
   try {
-    // Safety: check email exists
     if (!userEmail) {
       console.warn("No user email provided. Skipping email.");
       return;
     }
 
-    // Safety: check invoice file exists
     let attachments = [];
+
+    // Check if invoice exists
     if (invoicePath && fs.existsSync(invoicePath)) {
       attachments.push({
         filename: `invoice-${orderDetails._id}.pdf`,
@@ -44,8 +45,8 @@ export const sendInvoiceEmail = async (userEmail, invoicePath, orderDetails) => 
       subject: `Order Confirmation - Invoice #${orderDetails._id}`,
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2 style="color: #333;">Order Confirmation</h2>
-          
+          <h2>Order Confirmation</h2>
+
           <p>Thank you for your order!</p>
 
           <h3>Order Details:</h3>
@@ -53,9 +54,11 @@ export const sendInvoiceEmail = async (userEmail, invoicePath, orderDetails) => 
           <p><strong>Total Amount:</strong> $${orderDetails.amount.toFixed(2)}</p>
           <p><strong>Status:</strong> ${orderDetails.status}</p>
 
-          <p>Your invoice is ${
-            attachments.length ? "attached below." : "currently unavailable."
-          }</p>
+          <p>
+            Your invoice is ${
+              attachments.length ? "attached below." : "currently unavailable."
+            }
+          </p>
 
           <br/>
 
@@ -70,6 +73,42 @@ export const sendInvoiceEmail = async (userEmail, invoicePath, orderDetails) => 
     await transporter.sendMail(mailOptions);
     console.log(`Invoice email sent to ${userEmail}`);
   } catch (error) {
-    console.error("Error sending email:", error.message);
+    console.error("Error sending invoice email:", error.message);
+  }
+};
+
+// ================= SEND OTP EMAIL =================
+export const sendOTPEmail = async (userEmail, otp) => {
+  try {
+    if (!userEmail) {
+      console.warn("No email provided for OTP.");
+      return;
+    }
+
+    const mailOptions = {
+      from: `"Hawthorne Food Delivery" <${process.env.EMAIL_USER}>`,
+      to: userEmail,
+      subject: "Verify your email",
+      html: `
+        <div style="font-family: Arial, sans-serif; text-align: center;">
+          <h2>Email Verification</h2>
+
+          <p>Your OTP is:</p>
+
+          <h1 style="letter-spacing: 3px;">${otp}</h1>
+
+          <p>This OTP is valid for 5 minutes.</p>
+
+          <p style="font-size: 12px; color: gray;">
+            If you did not request this, please ignore this email.
+          </p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`OTP email sent to ${userEmail}`);
+  } catch (error) {
+    console.error("Error sending OTP email:", error.message);
   }
 };

@@ -1,3 +1,5 @@
+import "./config/env.js";
+
 import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
@@ -10,13 +12,14 @@ import path from "path"
 import { fileURLToPath } from "url"
 // import Razorpay from "razorpay"
 // import paymentRouter from "./routes/payment.route.js"
-import dotenv from "dotenv"
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables from .env
-dotenv.config()
+
+
+//console.log("ENV KEY:", process.env.STRIPE_SECRET_KEY)
 
 //app config
 const app = express()
@@ -33,6 +36,7 @@ app.use("/images", express.static("uploads"))
 app.use("/api/user", userRouter)
 app.use("/api/cart", cartRouter)
 app.use("/api/order", orderRouter)
+
 
 
 // // RAZORPAY API KEYS

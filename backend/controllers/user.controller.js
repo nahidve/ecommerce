@@ -1,161 +1,170 @@
-import userModel from "../models/user.model.js"
-import bcrypt from "bcrypt"
-import validator from "validator"
-import dotenv from "dotenv"
-import { generateToken } from "../config/utils.js"
+import userModel from "../models/user.model.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { sendOTPEmail } from "../config/sendEmail.js";
 
-// Load environment variables from .env for JWT secret token
-dotenv.config()
+// ================= HELPER: GENERATE OTP =================
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
-//desc: Register a new user
-//route: POST /api/user/register
-//access: Public
+// ================= SIGNUP =================
 const signupUser = async (req, res) => {
-    // Extract user details from request body
-    const { name, email, password } = req.body
+  try {
+    const { name, email, password } = req.body;
 
-    try {
-        // Validate input
-        if (!name || !email || !password) 
-            return res.status(400).json({ success: false, message: "All fields are required!" })
-
-        //Check if User with same email already exists
-        const existsingUser = await userModel.findOne({ email })
-        if (existsingUser) 
-            return res.status(400).json({ success: false, message: "User already exists!" })
-
-        // Validate email format & password strength
-        if (!validator.isEmail(email))
-            return res.status(400).json({ success: false, message: "Invalid email format!" })
-
-        if (!validator.isStrongPassword(password, { 
-            minLength: 4,
-            minLowercase: 0,
-            minUppercase: 0,
-            minNumbers: 0,
-            minSymbols: 0
-         }))
-            return res.status(400).json({ success: false, message: "Password is too short!" })
-
-        // Hash password
-        const salt = await bcrypt.genSalt(10)
-        const hashedPassword = await bcrypt.hash(password, salt)
-
-        //Check if this is the first user
-        // const userCount = await userModel.countDocuments()
-
-        // Create new user
-        const newUser = new userModel({ 
-            name, 
-            email, 
-            password: hashedPassword,
-            // isAdmin: userCount === 0 //First user is admin
-        })
-        
-        // Save user to database
-        const user = await newUser.save()
-        // Generate JWT token and set in cookie
-        const token = generateToken(user._id, res)
-        res.status(201).json({ success: true, token, message: "User registered successfully!", user: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            // isAdmin: user.isAdmin
-        }})
-
-    } catch (error) {
-        console.error("Error registering user:", error)
-        res.status(500).json({ success: false, message: "Internal Server error" })
+    const existingUser = await userModel.findOne({ email });
+    if (existingUser) {
+      return res.json({ success: false, message: "User already exists" });
     }
-    
 
-}
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-//@desc: Login user
-//@route: POST /api/user/login
-//@access: Public
+    const otp = generateOTP();
+
+    const user = new userModel({
+      name,
+      email,
+      password: hashedPassword,
+      otp,
+      otpExpiry: Date.now() + 5 * 60 * 1000, // 5 minutes
+      isVerified: false
+    });
+
+    await user.save();
+
+    // Send OTP email (non-blocking)
+    sendOTPEmail(email, otp);
+
+    res.json({
+      success: true,
+      message: "OTP sent to email. Please verify your account."
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: "Signup error" });
+  }
+};
+
+// ================= VERIFY OTP =================
+const verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+
+    if (!user.otp || user.otp !== otp) {
+      return res.json({ success: false, message: "Invalid OTP" });
+    }
+
+    if (user.otpExpiry < Date.now()) {
+      return res.json({ success: false, message: "OTP expired" });
+    }
+
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpiry = null;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Email verified successfully"
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: "Verification error" });
+  }
+};
+
+// ================= LOGIN =================
 const loginUser = async (req, res) => {
-    // Extract user details from request body
-    const { email, password } = req.body
+  try {
+    const { email, password } = req.body;
 
-    try {
-        const user = await userModel.findOne({ email })
-
-        // Check if user exists
-        if(!user)
-            return res.status(400).json({ success: false, message: "User does not exist" })
-
-        const isMatch = await bcrypt.compare(password, user.password)
-
-        // Check if password matches
-        if(!isMatch)
-            return res.status(400).json({ success: false, message: "Invalid Credentials" })
-
-        // Generate JWT token and set in cookie
-        const token = generateToken(user._id, res)
-        res.status(200).json({ success: true, token, message: "User logged in successfully!", user: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            // isAdmin: user.isAdmin
-        }})
-
-    } catch (error) {
-        console.error("Error logging in user:", error)
-        res.status(500).json({ success: false, message: "Internal Server error" })
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
     }
-}
 
-//@desc: Logout user
-//@route: POST /api/user/logout
-//@access: Private
+    // ❗ BLOCK if not verified
+    if (!user.isVerified) {
+      return res.json({
+        success: false,
+        message: "Please verify your email first"
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.json({ success: false, message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET
+    );
+
+    res.json({
+      success: true,
+      token
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: "Login error" });
+  }
+};
+
+// ================= LOGOUT =================
 const logoutUser = async (req, res) => {
-    try {
-        res.cookie("jwt", "", { maxAge: 0 })
-        res.status(200).json({success: true, message: "Logged Out Successfully"})
+  try {
+    res.json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: "Logout error" });
+  }
+};
 
-    } catch (error) {
-        console.error("Error in logout controller", error)
-        res.status(500).json({message:"Internal Server error"});
-    }
-}
-
-//@desc: Delete user
-//@route: DELETE /api/user/delete
-//@access: Private
+// ================= DELETE USER =================
 const deleteUser = async (req, res) => {
-    const id = req.user._id
+  try {
+    const userId = req.body.userId;
 
-    try {
-        // Check if user exists
-        const user = await userModel.findById(id)
-        if (!user) {
-            return res.status(404).json({ success: false, message: "User not found!" })
-        }
-        // Delete user
-        await userModel.findByIdAndDelete(id)
-        
-        //Clear JWT cookie on deletion
-        res.cookie("jwt", "", { maxAge: 0 })
-        res.status(200).json({success: true, message: "User Deleted Successfully"})
+    await userModel.findByIdAndDelete(userId);
 
-    } catch (error) {
-        console.error("Error deleting user:", error);
-        res.status(500).json({ success: false, message: "Internal Server error" });
-    }
-}
+    res.json({ success: true, message: "User deleted" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: "Delete error" });
+  }
+};
 
-//@desc: checkAuth
-//@route: GET /api/user/check
-//@access: Private
+// ================= CHECK AUTH =================
 const checkAuth = async (req, res) => {
-    try {
-        res.status(200).json({ user: req.user })
-    } catch (error) {
-        console.error("Error checking auth:", error)
-        res.status(500).json({ success: false, message: "Internal Server error." })
-    }
-}
+  try {
+    const user = await userModel.findById(req.body.userId).select("-password");
 
-export { signupUser, loginUser, logoutUser, deleteUser, checkAuth }
+    res.json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: "Auth check error" });
+  }
+};
 
+export {
+  signupUser,
+  verifyOTP,
+  loginUser,
+  logoutUser,
+  deleteUser,
+  checkAuth
+};
