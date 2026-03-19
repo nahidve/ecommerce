@@ -98,7 +98,7 @@ const verifyOrder = async (req, res) => {
       // Generate and send invoice
       try {
         const invoicePath = await generateInvoice(updatedOrder, user)
-        await sendInvoiceEmail(user.email, invoicePath, updatedOrder)
+        sendInvoiceEmail(user.email, invoicePath, updatedOrder)
         console.log("Invoice generated and sent successfully")
       } catch (pdfError) {
         console.error("Error generating/sending invoice:", pdfError)
