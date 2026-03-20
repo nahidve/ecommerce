@@ -90,3 +90,18 @@
 .nav-profile-dropdown li:hover {
     color: tomato;
 }
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  position: absolute;
+  top: 35px;
+  right: 0;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  outline: none;
+}
