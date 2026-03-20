@@ -1,5 +1,5 @@
 import express from "express"
-import { addFood, listFood, removeFood } from "../controllers/food.controller.js"
+import { addFood, listFood, removeFood, rateFood } from "../controllers/food.controller.js"
 import multer from "multer"
 import authMiddleware from "../middleware/auth.middleware.js"
 import adminMiddleware from "../middleware/admin.middleware.js"
@@ -31,5 +31,7 @@ foodRouter.get("/list", listFood)
 //@route DELETE /api/food/remove
 //@access Private
 foodRouter.delete("/remove", authMiddleware, adminMiddleware, removeFood)
+
+foodRouter.post("/rate", authMiddleware, rateFood)
 
 export default foodRouter

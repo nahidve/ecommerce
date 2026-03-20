@@ -1,143 +1,163 @@
-import orderModel from "../models/order.model.js"
-import userModel from "../models/user.model.js"
-import Stripe from "stripe"
-import { generateInvoice } from "../config/generateInvoice.js"
-import { sendInvoiceEmail } from "../config/sendEmail.js"
- 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-//console.log("CONTROLLER KEY:", process.env.STRIPE_SECRET_KEY)
- 
+import orderModel from "../models/order.model.js";
+import userModel from "../models/user.model.js";
+import Stripe from "stripe";
+import { generateInvoice } from "../config/generateInvoice.js";
+import { sendInvoiceEmail } from "../config/sendEmail.js";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 // @desc Place new order
 // @route POST /api/order/place
 // @access Private
 const placeOrder = async (req, res) => {
- 
-  const frontend_url = "http://localhost:5173"
- 
+  const frontend_url = "http://localhost:5173";
+
   try {
-    // Save order to MongoDB
+    console.log("Incoming items:", req.body.items); // ✅ debug
+
+    // ✅ Ensure proper structure + rating field
+    const formattedItems = Array.isArray(req.body.items)
+      ? req.body.items.map((item) => ({
+          _id: item._id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          rating: item.rating || 0,
+        }))
+      : [];
+
+    // Save order
     const newOrder = new orderModel({
       userId: req.body.userId,
-      items: req.body.items,
+      items: formattedItems,
       amount: req.body.amount,
       address: req.body.address,
       status: "pending",
-    })
-    await newOrder.save()
-    await userModel.findByIdAndUpdate(req.body.userId, { cartData: {} })
- 
-    const line_items = req.body.items.map((item) => ({
+    });
+
+    await newOrder.save();
+
+    // Clear cart
+    await userModel.findByIdAndUpdate(req.body.userId, { cartData: {} });
+
+    // Stripe line items
+    const line_items = formattedItems.map((item) => ({
       price_data: {
         currency: "usd",
         product_data: {
-          name: item.name
+          name: item.name,
         },
-        unit_amount: Number(item.price * 100)
+        unit_amount: Number(item.price * 100),
       },
-      quantity: item.quantity
-    }))
+      quantity: item.quantity,
+    }));
+
+    // Delivery fee
     line_items.push({
       price_data: {
         currency: "usd",
         product_data: {
-          name: "Delivery Charges"
+          name: "Delivery Charges",
         },
-        unit_amount: 2 * 100
+        unit_amount: 2 * 100,
       },
-      quantity: 1
-    })
- 
+      quantity: 1,
+    });
+
+    // Create Stripe session
     const session = await stripe.checkout.sessions.create({
-      line_items: line_items,
+      line_items,
       mode: "payment",
       success_url: `${frontend_url}/verify?success=true&orderId=${newOrder._id}`,
       cancel_url: `${frontend_url}/verify?success=false&orderId=${newOrder._id}`,
-      payment_method_types: ["card"]
-    })
-    res.json({ success: true, session_url: session.url })
- 
+      payment_method_types: ["card"],
+    });
+
+    res.json({ success: true, session_url: session.url });
+
   } catch (error) {
-    console.error("Error creating order:", error)
-    res.status(500).json({ success: false, message: error.message })
+    console.error("Error creating order:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
-}
- 
+};
+
 // @desc Get my orders
-// @route GET /api/order/me
+// @route POST /api/order/userorders
 // @access Private
 const userOrders = async (req, res) => {
   try {
-    const orders = await orderModel.find({userId:req.body.userId})
-    res.json({success:true, data:orders})
+    const orders = await orderModel.find({ userId: req.body.userId });
+    res.json({ success: true, data: orders });
   } catch (error) {
-    console.log(error)
-    res.json({success:false, message:"error"})
+    console.log(error);
+    res.json({ success: false, message: "error" });
   }
-}
+};
 
+// @desc Verify payment
+// @route POST /api/order/verify
+// @access Public
+const verifyOrder = async (req, res) => {
+  const { orderId, success } = req.body;
 
-// @desc Cancel my orders
-// @route DELETE /api/order/:id
-// @access Private
+  try {
+    if (success == "true") {
+      const updatedOrder = await orderModel.findByIdAndUpdate(
+        orderId,
+        { payment: true },
+        { new: true }
+      );
 
-// @desc Get all orders (Admin)
-// @route GET /api/order/orders
-// @access Private/Admin
+      const user = await userModel.findById(updatedOrder.userId);
+
+      // Generate & send invoice
+      try {
+        const invoicePath = await generateInvoice(updatedOrder, user);
+        await sendInvoiceEmail(user.email, invoicePath, updatedOrder);
+        console.log("Invoice sent successfully");
+      } catch (pdfError) {
+        console.error("Invoice error:", pdfError);
+      }
+
+      res.json({ success: true, message: "PAID" });
+    } else {
+      await orderModel.findByIdAndDelete(orderId);
+      res.json({ success: false, message: "NOT PAID" });
+    }
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: "Error" });
+  }
+};
+
+// @desc List all orders (Admin)
+const listOrders = async (req, res) => {
+  try {
+    const orders = await orderModel.find({});
+    res.json({ success: true, data: orders });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: "Error" });
+  }
+};
 
 // @desc Update order status (Admin)
-// @route PUT /api/order/:id
-// @access Private/Admin
-
-
-const verifyOrder = async (req, res) => {
-  const {orderId, success} = req.body
-  try {
-    if(success == "true") {
-      const updatedOrder = await orderModel.findByIdAndUpdate(orderId, {payment:true}, {new:true})
-      const user = await userModel.findById(updatedOrder.userId)
-      
-      // Generate and send invoice
-      try {
-        const invoicePath = await generateInvoice(updatedOrder, user)
-        sendInvoiceEmail(user.email, invoicePath, updatedOrder)
-        console.log("Invoice generated and sent successfully")
-      } catch (pdfError) {
-        console.error("Error generating/sending invoice:", pdfError)
-        // Don't fail the order if PDF generation fails
-      }
-      
-      res.json({success:true, message:"PAID"})
-    }
-    else {
-      await orderModel.findByIdAndDelete(orderId)
-      res.json({success:false, message:"NOT PAID"})
-    }
-  } catch (error) {
-    console.log(error)
-    res.json({success:false, message:"Error"})
-  }
-}
-
-//Listing orders for adminpanel
-const listOrders = async (req, res) =>{
-  try {
-    const orders = await orderModel.find({})
-    res.json({success: true, data:orders})
-  } catch (error) {
-    console.log(error)
-    res.json({success:false, message:"Error"})
-  }
-}
-
-//API for updating order Status by admin
 const updateStatus = async (req, res) => {
   try {
-    await orderModel.findByIdAndUpdate(req.body.orderId, {status: req.body.status})
-    res.json({success: true, message:"Status Updated"})
+    await orderModel.findByIdAndUpdate(req.body.orderId, {
+      status: req.body.status,
+    });
+    res.json({ success: true, message: "Status Updated" });
   } catch (error) {
-    console.log(error)
-    res.json({success:false, message:"Error"})
+    console.log(error);
+    res.json({ success: false, message: "Error" });
   }
-}
+};
 
-export { placeOrder, verifyOrder, userOrders, listOrders, updateStatus }
+export {
+  placeOrder,
+  userOrders,
+  verifyOrder,
+  listOrders,
+  updateStatus,
+};

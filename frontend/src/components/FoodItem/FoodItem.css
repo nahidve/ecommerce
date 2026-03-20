@@ -68,3 +68,7 @@
     width: 30px;
     cursor: pointer;
 }
+.stars span {
+  color: gold;
+  font-size: 18px;
+}
