@@ -30,3 +30,7 @@ a{
     opacity: 1;
    }
 }
+.dishes{
+  display: flex;
+  justify-content: space-between;
+}

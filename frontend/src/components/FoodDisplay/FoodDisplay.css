@@ -14,3 +14,53 @@
     gap: 30px;
     row-gap: 50px;
 }
+/* ⭐ Price Filter Container */
+/* .price-filter {
+  margin-bottom: 20px;
+  padding: 12px 15px;
+  border: 2px solid tomato;
+  border-radius: 8px;
+  display: inline-block;
+  background-color: #fff5f3;
+} */
+
+/* Title */
+.filter-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: tomato;
+  margin-bottom: 8px;
+}
+
+/* Inputs wrapper */
+.price-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Inputs */
+.price-inputs input {
+  width: 80px;
+  padding: 6px 8px;
+  border: 1.5px solid tomato;
+  border-radius: 5px;
+  outline: none;
+  font-size: 13px;
+  transition: 0.2s;
+}
+
+/* Focus effect */
+.price-inputs input:focus {
+  border-color: #ff6347;
+  box-shadow: 0 0 4px rgba(255, 99, 71, 0.4);
+}
+
+/* Dash */
+.dash {
+  font-weight: bold;
+  color: tomato;
+}
+.price-inputs input:hover {
+  border-color: #ff6347;
+}

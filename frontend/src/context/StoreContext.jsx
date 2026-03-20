@@ -1,7 +1,5 @@
-import { createContext, useEffect } from "react";
+import { createContext, useEffect, useState } from "react";
 import axios from "axios";
-
-import { useState } from "react";
 
 export const StoreContext = createContext(null);
 
@@ -11,6 +9,12 @@ const StoreContextProvider = (props) => {
   const [token, setToken] = useState("");
   const [food_list, setFoodList] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // ⭐ NEW: Price filter state
+  const [priceRange, setPriceRange] = useState({
+    min: 0,
+    max: Infinity,
+  });
 
   // ✅ ADD TO CART
   const addToCart = async (itemId) => {
@@ -23,7 +27,7 @@ const StoreContextProvider = (props) => {
       await axios.post(
         url + "/api/cart/add",
         { itemId },
-        { headers: { token } },
+        { headers: { token } }
       );
     }
   };
@@ -35,7 +39,7 @@ const StoreContextProvider = (props) => {
       await axios.post(
         url + "/api/cart/remove",
         { itemId },
-        { headers: { token } },
+        { headers: { token } }
       );
     }
   };
@@ -52,7 +56,7 @@ const StoreContextProvider = (props) => {
     return totalAmount;
   };
 
-  // ✅ FETCH FOOD LIST (IMPORTANT FOR RATINGS)
+  // ✅ FETCH FOOD LIST
   const fetchFoodList = async () => {
     const response = await axios.get(url + "/api/food/list");
     setFoodList(response.data.data);
@@ -60,9 +64,11 @@ const StoreContextProvider = (props) => {
 
   // ✅ LOAD CART DATA
   const loadCartData = async (token) => {
-    const response = await axios.post(url + "/api/cart/get", {
-      headers: { token },
-    });
+    const response = await axios.post(
+      url + "/api/cart/get",
+      {},
+      { headers: { token } }
+    );
     setCartItems(response.data.cartData || {});
   };
 
@@ -92,13 +98,17 @@ const StoreContextProvider = (props) => {
     fetchFoodList,
     searchQuery,
     setSearchQuery,
-  }
+
+    // ⭐ EXPORT PRICE FILTER
+    priceRange,
+    setPriceRange,
+  };
 
   return (
     <StoreContext.Provider value={contextValue}>
       {props.children}
     </StoreContext.Provider>
-  )
-}
+  );
+};
 
 export default StoreContextProvider;
