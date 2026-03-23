@@ -1,14 +1,18 @@
 import "./navbar.css";
 import { assets } from "../../assets/frontend_assets/assets.js";
-import { useContext, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { StoreContext } from "../../context/StoreContext.jsx";
+import { useAppDispatch, useAppSelector } from "../../store/hooks.js";
+import { selectCartTotal } from "../../store/selectors.js";
+import { clearToken } from "../../store/slices/authSlice.js";
+import { setSearchQuery } from "../../store/slices/uiSlice.js";
 
 const Navbar = ({ setShowLogin }) => {
   const [menu, setMenu] = useState("home");
 
-  const { getTotalCartAmount, token, setToken, setSearchQuery } =
-    useContext(StoreContext);
+  const dispatch = useAppDispatch();
+  const cartTotal = useAppSelector(selectCartTotal);
+  const token = useAppSelector((state) => state.auth.token);
 
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -18,15 +22,15 @@ const Navbar = ({ setShowLogin }) => {
   // ⭐ Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setSearchQuery(search.toLowerCase());
+      dispatch(setSearchQuery(search.toLowerCase()));
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, dispatch]);
 
   const logout = () => {
     localStorage.removeItem("token");
-    setToken("");
+    dispatch(clearToken());
     navigate("/");
   };
 
@@ -93,7 +97,7 @@ const Navbar = ({ setShowLogin }) => {
           <Link to="/cart">
             <img src={assets.basket_icon} alt="" />
           </Link>
-          <div className={getTotalCartAmount() === 0 ? "" : "dot"}></div>
+          <div className={cartTotal === 0 ? "" : "dot"}></div>
         </div>
 
         {/* Auth */}

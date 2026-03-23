@@ -1,12 +1,11 @@
-import { useState, useContext } from "react";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { StoreContext } from "../../context/StoreContext";
 import "./VerifyOTP.css";
+import { API_BASE_URL } from "../../store/constants.js";
 
 export const VerifyOTP = () => {
   const [otp, setOtp] = useState("");
-  const { url } = useContext(StoreContext);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -16,7 +15,7 @@ export const VerifyOTP = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post(`${url}/api/user/verify-otp`, {
+      const response = await axios.post(`${API_BASE_URL}/api/user/verify-otp`, {
         email,
         otp,
       });
@@ -41,7 +40,9 @@ export const VerifyOTP = () => {
     <div className="verify-otp">
       <form onSubmit={handleVerify} className="verify-otp-form">
         <h2>Verify OTP</h2>
-        <p>Enter the OTP sent to <strong>{email}</strong></p>
+        <p>
+          Enter the OTP sent to <strong>{email}</strong>
+        </p>
 
         <input
           type="text"
@@ -54,5 +55,5 @@ export const VerifyOTP = () => {
         <button type="submit">Verify</button>
       </form>
     </div>
-  )
-}
+  );
+};

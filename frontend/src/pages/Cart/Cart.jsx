@@ -1,13 +1,17 @@
-import { useContext } from "react"
-import { StoreContext } from "../../context/StoreContext"
-import "./Cart.css"
-import { useNavigate } from "react-router-dom"
+import "./Cart.css";
+import { useNavigate } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "../../store/hooks.js";
+import { selectCartTotal } from "../../store/selectors.js";
+import { API_BASE_URL } from "../../store/constants.js";
+import { removeFromCart } from "../../store/slices/cartSlice.js";
 
 const Cart = () => {
+  const dispatch = useAppDispatch();
+  const cartItems = useAppSelector((state) => state.cart.items);
+  const food_list = useAppSelector((state) => state.catalog.foodList);
+  const cartTotal = useAppSelector(selectCartTotal);
 
-  const {cartItems, food_list, removeFromCart, getTotalCartAmount, url} = useContext(StoreContext)
-
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   return (
     <div className="cart">
@@ -18,26 +22,31 @@ const Cart = () => {
           <p>Price</p>
           <p>Quantity</p>
           <p>Total</p>
-          {/* <p>Remove</p> */}
         </div>
         <br />
         <hr />
-        {food_list.map((item, index)=>{
-          if(cartItems[item._id] > 0) {
+        {food_list.map((item, index) => {
+          if (cartItems[item._id] > 0) {
             return (
-              <div>
+              <div key={item._id ?? index}>
                 <div className="cart-items-title cart-items-item">
-                  <img src={url+"/images/"+item.image} alt="" />
+                  <img src={API_BASE_URL + "/images/" + item.image} alt="" />
                   <p>{item.name}</p>
                   <p>${item.price}</p>
                   <p>{cartItems[item._id]}</p>
                   <p>${item.price * cartItems[item._id]}</p>
-                  <p onClick={()=>removeFromCart(item._id)} className="cross">Remove</p>
+                  <p
+                    onClick={() => dispatch(removeFromCart(item._id))}
+                    className="cross"
+                  >
+                    Remove
+                  </p>
                 </div>
                 <hr />
               </div>
-            )
+            );
           }
+          return null;
         })}
       </div>
       <div className="cart-bottom">
@@ -46,20 +55,20 @@ const Cart = () => {
           <div>
             <div className="cart-total-details">
               <p>Subtotal</p>
-              <p>${getTotalCartAmount()}</p>
+              <p>${cartTotal}</p>
             </div>
             <hr />
             <div className="cart-total-details">
               <p>Delivery Fee</p>
-              <p>${getTotalCartAmount() === 0 ? 0 : 2}</p>
+              <p>${cartTotal === 0 ? 0 : 2}</p>
             </div>
             <hr />
             <div className="cart-total-details">
               <b>Total</b>
-              <b>${getTotalCartAmount() === 0 ? 0 : getTotalCartAmount() + 2}</b>
+              <b>${cartTotal === 0 ? 0 : cartTotal + 2}</b>
             </div>
           </div>
-          <button onClick={()=>navigate("/order")}>PROCEED TO CHECKOUT</button>
+          <button onClick={() => navigate("/order")}>PROCEED TO CHECKOUT</button>
         </div>
         <div className="cart-promocode">
           <div>
@@ -72,7 +81,7 @@ const Cart = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Cart
+export default Cart;

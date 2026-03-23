@@ -1,14 +1,17 @@
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import "./MyOrders.css";
-import { StoreContext } from "../../context/StoreContext";
 import axios from "axios";
 import { assets } from "../../assets/frontend_assets/assets.js";
+import { useAppDispatch, useAppSelector } from "../../store/hooks.js";
+import { API_BASE_URL } from "../../store/constants.js";
+import { fetchFoodList } from "../../store/slices/catalogSlice.js";
 
 export const MyOrders = () => {
-  const { url, token, fetchFoodList } = useContext(StoreContext);
+  const dispatch = useAppDispatch();
+  const url = API_BASE_URL;
+  const token = useAppSelector((state) => state.auth.token);
   const [data, setData] = useState([]);
 
-  // Fetch all orders for the logged-in user
   const fetchOrders = async () => {
     try {
       const response = await axios.post(
@@ -28,7 +31,6 @@ export const MyOrders = () => {
     }
   }, [token]);
 
-  // Handle rating a food item
   const handleRating = async (orderId, foodId, rating) => {
     try {
       const response = await axios.post(
@@ -40,7 +42,6 @@ export const MyOrders = () => {
       if (response.data.success) {
         alert("Rated successfully");
 
-        // Update local state immediately
         setData((prevOrders) =>
           prevOrders.map((order) => {
             if (order._id === orderId) {
@@ -55,7 +56,7 @@ export const MyOrders = () => {
           })
         );
 
-        fetchFoodList(); // refresh global food list
+        dispatch(fetchFoodList());
       } else {
         alert("Error rating");
       }
@@ -74,7 +75,6 @@ export const MyOrders = () => {
           <div key={order._id} className="my-orders-order">
             <img src={assets.parcel_icon} alt="Parcel" />
 
-            {/* Order Items */}
             <div>
               <p>
                 {order.items
@@ -82,7 +82,6 @@ export const MyOrders = () => {
                   .join(", ")}
               </p>
 
-              {/* ⭐ Rating Section (only after payment) */}
               {order.payment &&
                 order.items.map((item) => {
                   const currentRating = item.rating || 0;

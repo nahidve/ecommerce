@@ -1,12 +1,16 @@
-import { useContext, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { StoreContext } from "../../context/StoreContext";
 import "./PlaceOrder.css";
 import axios from "axios";
+import { useAppSelector } from "../../store/hooks.js";
+import { selectCartTotal } from "../../store/selectors.js";
+import { API_BASE_URL } from "../../store/constants.js";
 
 const PlaceOrder = () => {
-  const { getTotalCartAmount, token, food_list, cartItems, url } =
-    useContext(StoreContext);
+  const cartTotal = useAppSelector(selectCartTotal);
+  const token = useAppSelector((state) => state.auth.token);
+  const cartItems = useAppSelector((state) => state.cart.items);
+
   const [data, setData] = useState({
     firstName: "",
     lastName: "",
@@ -27,43 +31,36 @@ const PlaceOrder = () => {
 
   const placeOrder = async (event) => {
     event.preventDefault();
-    let orderItems = [];
+    const orderItems = Object.entries(cartItems)
+      .filter(([, qty]) => qty > 0)
+      .map(([itemId, quantity]) => ({ _id: itemId, quantity }));
 
-    food_list.forEach((item) => {
-      if (cartItems[item._id] > 0) {
-        orderItems.push({
-          _id: item._id,
-          name: item.name,
-          price: item.price,
-          quantity: cartItems[item._id],
-          rating: 0,
-        })
-      }
-    })
-    
-    let orderData = {
+    const orderData = {
       address: data,
       items: orderItems,
-      amount: getTotalCartAmount() === 0 ? 0 : getTotalCartAmount() + 2,
-    }
-    let response = await axios.post(url + "/api/order/place", orderData, {
-      headers: { token },
-    })
+    };
+    let response = await axios.post(
+      API_BASE_URL + "/api/order/place",
+      orderData,
+      {
+        headers: { token },
+      }
+    );
     if (response.data.success) {
       const { session_url } = response.data;
       window.location.replace(session_url);
     } else alert("Error placing order: " + response.data.message);
-  }
+  };
 
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!token) {
       navigate("/cart");
-    } else if (getTotalCartAmount() === 0) {
+    } else if (cartTotal === 0) {
       navigate("/cart");
     }
-  }, [token]);
+  }, [token, cartTotal, navigate]);
 
   return (
     <form onSubmit={placeOrder} className="place-order">
@@ -155,19 +152,17 @@ const PlaceOrder = () => {
           <div>
             <div className="cart-total-details">
               <p>Subtotal</p>
-              <p>${getTotalCartAmount()}</p>
+              <p>${cartTotal}</p>
             </div>
             <hr />
             <div className="cart-total-details">
               <p>Delivery Fee</p>
-              <p>${getTotalCartAmount() === 0 ? 0 : 2}</p>
+              <p>${cartTotal === 0 ? 0 : 2}</p>
             </div>
             <hr />
             <div className="cart-total-details">
               <b>Total</b>
-              <b>
-                ${getTotalCartAmount() === 0 ? 0 : getTotalCartAmount() + 2}
-              </b>
+              <b>${cartTotal === 0 ? 0 : cartTotal + 2}</b>
             </div>
           </div>
           <button type="submit">PROCEED TO PAYMENT</button>
