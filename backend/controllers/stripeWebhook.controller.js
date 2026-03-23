@@ -1,8 +1,9 @@
-import orderModel from "../models/order.model.js";
-import userModel from "../models/user.model.js";
-import { stripe } from "../config/stripe.js";
-import { generateInvoice } from "../config/generateInvoice.js";
-import { sendInvoiceEmail } from "../config/sendEmail.js";
+import orderModel from "../models/order.model.js"
+import userModel from "../models/user.model.js"
+import { stripe } from "../config/stripe.js"
+import { generateInvoice } from "../config/generateInvoice.js"
+import { sendInvoiceEmail } from "../config/sendEmail.js"
+import redisClient from "../config/redis.js"
 
 /**
  * PDF + email can take seconds; run after the HTTP response so Stripe
@@ -12,14 +13,14 @@ function schedulePostPaymentFulfillment(order) {
   setImmediate(() => {
     void (async () => {
       try {
-        const user = await userModel.findById(order.userId);
-        const invoicePath = await generateInvoice(order, user);
-        await sendInvoiceEmail(user?.email, invoicePath, order);
+        const user = await userModel.findById(order.userId)
+        const invoicePath = await generateInvoice(order, user)
+        await sendInvoiceEmail(user?.email, invoicePath, order)
       } catch (err) {
-        console.error("Post-payment fulfill error:", err);
+        console.error("Post-payment fulfill error:", err)
       }
-    })();
-  });
+    })()
+  })
 }
 
 /**
@@ -40,11 +41,34 @@ export const handleStripeWebhook = async (req, res) => {
     Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || "", "utf8");
 
   try {
-    event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
-  } catch (err) {
-    console.error("Stripe webhook signature verification failed:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
+} catch (err) {
+  console.error("Stripe webhook signature verification failed:", err.message);
+  return res.status(400).send(`Webhook Error: ${err.message}`);
+}
+
+// 🔥 REDIS IDEMPOTENCY CHECK START
+const eventId = event.id;
+const cacheKey = `stripe:event:${eventId}`;
+
+try {
+  const exists = await redisClient.get(cacheKey);
+
+  if (exists) {
+    console.log("Duplicate webhook ignored:", eventId);
+    return res.status(200).json({ received: true });
   }
+
+  // Mark as processed (24 hours)
+  await redisClient.set(cacheKey, "processed", {
+    EX: 86400,
+  });
+
+} catch (err) {
+  console.error("Redis error (webhook):", err);
+  // Do NOT block webhook if Redis fails
+}
+// 🔥 REDIS IDEMPOTENCY CHECK END
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
