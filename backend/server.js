@@ -1,4 +1,4 @@
-import "./config/env.js";
+import "./config/env.js"
 
 import express from "express"
 import cors from "cors"
@@ -8,6 +8,7 @@ import foodRouter from "./routes/food.route.js"
 import userRouter from "./routes/user.route.js"
 import cartRouter from "./routes/cart.route.js"
 import orderRouter from "./routes/order.route.js"
+import { connectRedis } from "./config/redis.js"
 import { handleStripeWebhook } from "./controllers/stripeWebhook.controller.js"
 import path from "path"
 import { fileURLToPath } from "url"
@@ -71,8 +72,19 @@ app.get('/payment-success', (req, res) => {
 app.get("/health", (req, res) => res.send("Server is running"))
 
 //Connect to MongoDB and start server
-connectDB().then(() => {
-    app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
+connectDB()
+  .then(async () => {
+    await connectRedis();
+
+    // ✅ TEST REDIS HERE
+    const redisClient = (await import("./config/redis.js")).default;
+    await redisClient.set("test", "working");
+    const val = await redisClient.get("test");
+    console.log("Redis test:", val);
+
+    app.listen(PORT, () => 
+      console.log(`Server is running on port ${PORT}`)
+    )
 }).catch((error) => console.log(error))
 
 

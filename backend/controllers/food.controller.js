@@ -1,67 +1,101 @@
 import foodModel from "../models/food.model.js"
+import orderModel from "../models/order.model.js"
 import fs from "fs"
+import redisClient from "../config/redis.js"
 
 //@desc Add Food Item
 //@route POST /api/food/add
-//@access Private
+//@access Admin
 const addFood = async (req, res) => {
-    let image_filename = `${req.file.filename}`
+  let image_filename = `${req.file.filename}`
 
-    try {
-        const food = new foodModel({
-            name: req.body.name,
-            description: req.body.description,
-            price: req.body.price,
-            category: req.body.category,
-            image: image_filename
-        })
+  try {
+    const food = new foodModel({
+      name: req.body.name,
+      description: req.body.description,
+      price: req.body.price,
+      category: req.body.category,
+      image: image_filename
+    })
 
-        await food.save()
-        res.status(201).json({ success: true, message: "Food Added Successfully" })
+    await food.save()
+    await redisClient.del("food_list");
+    res.status(201).json({ success: true, message: "Food Added Successfully" })
 
-    } catch (error) {
-        console.error("Error adding food:", error)
-        res.json({ success: false, message: "Error adding food!" })
-    }
+  } catch (error) {
+    console.error("Error adding food:", error)
+    res.json({ success: false, message: "Error adding food!" })
+  }
 }
 
 //@desc List All Foods
 //@route GET /api/food/list
-//@access Public
+//@access Admin
 const listFood = async (req, res) => {
-    try {
-        const foods = await foodModel.find({})
-        res.status(200).json({ success: true, data: foods })
-    } catch (error) {
-        console.error("Error listing foods:", error)
-        res.status(500).json({ success: false, message: "Error listing foods!" })
+  try {
+    const cacheKey = "food_list"
+
+    // 1. Check cache
+    const cachedData = await redisClient.get(cacheKey)
+    if (cachedData) {
+      console.log("Serving from REDIS")
+      return res.status(200).json({
+        success: true,
+        data: JSON.parse(cachedData),
+        source: "cache",
+      })
     }
+    console.log("Serving from DATABASE")
+
+    // 2. Fetch from DB
+    const foods = await foodModel.find({})
+
+    // 3. Store in Redis (1 hour)
+    await redisClient.set(cacheKey, JSON.stringify(foods), {
+      EX: 3600,
+    })
+
+    res.status(200).json({
+      success: true,
+      data: foods,
+      source: "db",
+    })
+
+  } catch (error) {
+    console.error("Error listing foods:", error)
+    res.status(500).json({
+      success: false,
+      message: "Error listing foods!",
+    })
+  }
 }
 
 //@desc Remove Food Item
 //@route DELETE /api/food/remove/:id
-//@access Private
+//@access Admin
 const removeFood = async (req, res) => {
-    try {
-        const food = await foodModel.findById(req.body.id)
+  try {
+    const food = await foodModel.findById(req.body.id)
 
-        if (!food) return res.status(404).json({ success: false, message: "Food Item Does Not Exist" })
+    if (!food) return res.status(404).json({ success: false, message: "Food Item Does Not Exist" })
 
-        //remove image from uploads folder
-        fs.unlink(`uploads/${food.image}`, () => { })
-        //remove food item from database
-        await foodModel.findByIdAndDelete(req.body.id)
+    //remove image from uploads folder
+    fs.unlink(`uploads/${food.image}`, () => { })
 
-        res.status(200).json({ success: true, message: "Food Item Removed Successfully" })
+    //remove food item from database
+    await foodModel.findByIdAndDelete(req.body.id)
+    await redisClient.del("food_list");
+    res.status(200).json({ success: true, message: "Food Item Removed Successfully" })
 
-    } catch (error) {
-        console.error("Error removing food item:", error)
-        res.status(500).json({ success: false, message: "Error removing food item!" })
-    }
+  } catch (error) {
+    console.error("Error removing food item:", error)
+    res.status(500).json({ success: false, message: "Error removing food item!" })
+  }
 }
 
-// @desc Rate food
-import orderModel from "../models/order.model.js";
+// @desc Rate Food Item
+//@route POST /api/food/rate
+//@access Public
 const rateFood = async (req, res) => {
   try {
     const { foodId, rating } = req.body;
