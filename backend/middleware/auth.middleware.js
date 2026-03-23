@@ -5,18 +5,45 @@ const authMiddleware = async (req, res, next) => {
     const { token } = req.headers
 
     if (!token) {
-      return res.json({ success: false, message: "Not Authorized. Login Again" })
+      return res.status(401).json({
+        success: false,
+        message: "Not Authorized. Login Again",
+      })
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    const secret = process.env.JWT_SECRET
+    if (!secret) {
+      console.error("JWT_SECRET is not set in environment")
+      return res.status(500).json({
+        success: false,
+        message: "Server misconfiguration",
+      })
+    }
 
-    // ✅ Set both (important)
-    req.body.userId = decoded.id  // for order APIs
-    req.user = { id: decoded.id }  // for rating API
+    const decoded = jwt.verify(token, secret)
+
+    if (!req.body || typeof req.body !== "object") {
+      req.body = {}
+    }
+    req.body.userId = decoded.id
+    req.user = { id: decoded.id }
 
     next()
   } catch (error) {
-    console.error("Error in auth middleware", error);
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please log in again.",
+      })
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      console.error("Error in auth middleware", error.name, error.message)
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired session. Please log in again.",
+      })
+    }
+    console.error("Error in auth middleware", error)
     res.status(500).json({ success: false, message: "Internal Server Error" })
   }
 }

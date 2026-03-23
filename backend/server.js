@@ -8,6 +8,7 @@ import foodRouter from "./routes/food.route.js"
 import userRouter from "./routes/user.route.js"
 import cartRouter from "./routes/cart.route.js"
 import orderRouter from "./routes/order.route.js"
+import { handleStripeWebhook } from "./controllers/stripeWebhook.controller.js"
 import path from "path"
 import { fileURLToPath } from "url"
 // import Razorpay from "razorpay"
@@ -24,6 +25,14 @@ const __dirname = path.dirname(__filename);
 //app config
 const app = express()
 const PORT = process.env.PORT || 4000
+
+// Stripe webhook needs raw body — register before express.json()
+// Use a broad `type` so charset variants (e.g. application/json; charset=utf-8) still parse as Buffer
+app.post(
+  "/api/order/stripe-webhook",
+  express.raw({ type: "*/*" }),
+  handleStripeWebhook
+)
 
 //middlewares
 app.use(express.json())
