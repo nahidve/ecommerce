@@ -9,7 +9,7 @@ const orderSchema = new mongoose.Schema(
         name: String,
         quantity: Number,
         price: Number,
-        rating: { type: Number, default: 0 } // ⭐ ADD THIS
+        rating: { type: Number, default: 0 }
       }
     ],
     amount: { type: Number, required: true },
@@ -19,6 +19,24 @@ const orderSchema = new mongoose.Schema(
     payment: { type: Boolean, default: false }
   }, { timestamps: true }
 )
+
+// Index for fetching user orders sorted by date (most common query)
+orderSchema.index({ userId: 1, createdAt: -1 });
+
+// Index for restaurant dashboard queries
+orderSchema.index({ "items._id": 1, status: 1, createdAt: -1 });
+
+// Index for filtering orders by status and date (admin/restaurant view)
+orderSchema.index({ status: 1, createdAt: -1 });
+
+// Index for payment status queries
+orderSchema.index({ payment: 1, status: 1 });
+
+// Index for date-based queries (e.g., daily/weekly reports)
+orderSchema.index({ createdAt: -1 });
+
+// Compound index for order analytics by date range
+orderSchema.index({ createdAt: 1, status: 1, amount: 1 });
 
 const orderModel = mongoose.models.order || mongoose.model("order", orderSchema)
 
