@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema(
 )
 
 // Index for email lookups (already has unique:true, but explicit index is good)
-userSchema.index({ email: 1 }, { unique: true });
+// userSchema.index({ email: 1 }, { unique: true });
 
 // Index for OTP queries - useful for finding users by OTP during verification
 userSchema.index({ otp: 1, otpExpiry: 1 });

@@ -47,7 +47,7 @@ export const handleStripeWebhook = async (req, res) => {
   return res.status(400).send(`Webhook Error: ${err.message}`);
 }
 
-// 🔥 REDIS IDEMPOTENCY CHECK START
+// REDIS IDEMPOTENCY CHECK START
 const eventId = event.id;
 const cacheKey = `stripe:event:${eventId}`;
 
@@ -68,7 +68,7 @@ try {
   console.error("Redis error (webhook):", err);
   // Do NOT block webhook if Redis fails
 }
-// 🔥 REDIS IDEMPOTENCY CHECK END
+// REDIS IDEMPOTENCY CHECK END
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
