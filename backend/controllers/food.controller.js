@@ -1,7 +1,7 @@
 import foodModel from "../models/food.model.js"
 import orderModel from "../models/order.model.js"
 import fs from "fs"
-import redisClient from "../config/redis.js"
+import { safeRedisGet, safeRedisSet } from "../config/redis.js";
 
 //@desc Add Food Item
 //@route POST /api/food/add
@@ -33,39 +33,36 @@ const addFood = async (req, res) => {
 //@access Admin
 const listFood = async (req, res) => {
   try {
+    // -------- TRY REDIS --------
     const cacheKey = "food_list"
-
-    // 1. Check cache
-    const cachedData = await redisClient.get(cacheKey)
-    if (cachedData) {
+    const cached = await safeRedisGet(cacheKey);
+    if (cached) {
       console.log("Serving from REDIS")
       return res.status(200).json({
         success: true,
-        data: JSON.parse(cachedData),
+        data: JSON.parse(cached),
         source: "cache",
       })
     }
     console.log("Serving from DATABASE")
 
-    // 2. Fetch from DB
-    const foods = await foodModel.find({})
+     // -------- FALLBACK TO DB --------
+    const foods = await foodModel.find({}).lean();
 
-    // 3. Store in Redis (1 hour)
-    await redisClient.set(cacheKey, JSON.stringify(foods), {
-      EX: 3600,
-    })
+     // -------- CACHE (NON-BLOCKING) --------
+    safeRedisSet(cacheKey, JSON.stringify(foods), { EX: 3600 });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: foods,
       source: "db",
     })
-
+    
   } catch (error) {
-    console.error("Error listing foods:", error)
+    console.error("Error fetching food list", error)
     res.status(500).json({
       success: false,
-      message: "Error listing foods!",
+      message: "Error fetching food list",
     })
   }
 }

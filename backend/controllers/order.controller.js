@@ -1,12 +1,11 @@
-import mongoose from "mongoose"
-import orderModel from "../models/order.model.js"
-import foodModel from "../models/food.model.js"
-import { stripe } from "../config/stripe.js"
-import redisClient from "../config/redis.js"
+import mongoose from "mongoose";
+import orderModel from "../models/order.model.js";
+import foodModel from "../models/food.model.js";
+import { stripe } from "../config/stripe.js";
+import { acquireLock } from "../config/redis.js";
 
-const DELIVERY_FEE_USD = 2
-
-const toUsdCents = (usd) => Math.round(Number(usd) * 100)
+const DELIVERY_FEE_USD = 2;
+const toUsdCents = (usd) => Math.round(Number(usd) * 100);
 
 // @desc Place new order (IDEMPOTENT)
 // @route POST /api/order/place
@@ -31,13 +30,8 @@ const placeOrder = async (req, res) => {
 
     // ------------------ REDIS LOCK ------------------
     const lockKey = `order:lock:${idempotencyKey}`;
-
     try {
-      const lock = await redisClient.set(lockKey, "1", {
-        NX: true,
-        EX: 30, // 30 sec lock
-      });
-
+      const lock = await acquireLock(lockKey);
       if (!lock) {
         return res.status(429).json({
           success: false,
@@ -164,9 +158,7 @@ const placeOrder = async (req, res) => {
     const line_items = formattedItems.map((item) => ({
       price_data: {
         currency: "usd",
-        product_data: {
-          name: item.name,
-        },
+        product_data: { name: item.name },
         unit_amount: toUsdCents(item.price),
       },
       quantity: item.quantity,
@@ -175,9 +167,7 @@ const placeOrder = async (req, res) => {
     line_items.push({
       price_data: {
         currency: "usd",
-        product_data: {
-          name: "Delivery Charges",
-        },
+        product_data: { name: "Delivery Charges" },
         unit_amount: toUsdCents(DELIVERY_FEE_USD),
       },
       quantity: 1,
@@ -192,9 +182,7 @@ const placeOrder = async (req, res) => {
       cancel_url: `${frontendUrl}/verify?success=false&orderId=${orderIdStr}`,
       payment_method_types: ["card"],
       client_reference_id: orderIdStr,
-      metadata: {
-        orderId: orderIdStr,
-      },
+      metadata: { orderId: orderIdStr },
     });
 
     res.json({ success: true, session_url: session.url });
@@ -202,7 +190,7 @@ const placeOrder = async (req, res) => {
     console.error("Error creating order:", error);
     res.status(500).json({ success: false, message: error.message });
   }
-}
+};
 
 // @desc Get my orders
 // @route POST /api/order/userorders
@@ -215,7 +203,7 @@ const userOrders = async (req, res) => {
     console.log(error);
     res.json({ success: false, message: "error" });
   }
-}
+};
 
 // @desc Get my orders
 // @route POST /api/order/userorders
@@ -226,7 +214,9 @@ const getOrderPaymentStatus = async (req, res) => {
     const userId = req.user.id;
 
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
-      return res.status(400).json({ success: false, message: "Invalid order id" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid order id" });
     }
 
     const order = await orderModel
@@ -235,7 +225,9 @@ const getOrderPaymentStatus = async (req, res) => {
       .lean();
 
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
 
     res.json({
@@ -247,7 +239,7 @@ const getOrderPaymentStatus = async (req, res) => {
     console.error(error);
     res.status(500).json({ success: false, message: "Error" });
   }
-}
+};
 
 // @desc List all orders (Admin)
 const listOrders = async (req, res) => {
@@ -258,7 +250,7 @@ const listOrders = async (req, res) => {
     console.log(error);
     res.json({ success: false, message: "Error" });
   }
-}
+};
 
 // @desc Update order status (Admin)
 const updateStatus = async (req, res) => {
@@ -271,7 +263,7 @@ const updateStatus = async (req, res) => {
     console.log(error);
     res.json({ success: false, message: "Error" });
   }
-}
+};
 
 export {
   placeOrder,
@@ -279,4 +271,4 @@ export {
   getOrderPaymentStatus,
   listOrders,
   updateStatus,
-}
+};
