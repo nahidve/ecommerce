@@ -4,7 +4,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "server": "nodemon server.js"
+    "server": "concurrently \"nodemon server.js\" \"node workers/email.worker.js\""
   },
   "author": "Nahid Azad",
   "license": "ISC",
@@ -12,6 +12,8 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.0",
+    "bullmq": "^5.71.1",
+    "concurrently": "^9.2.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
