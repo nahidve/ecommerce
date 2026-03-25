@@ -1,7 +1,7 @@
 import userModel from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { sendOTPEmail } from "../config/sendEmail.js";
+import { emailQueue } from "../queues/email.queue.js";
 
 // ================= HELPER: GENERATE OTP =================
 const generateOTP = () => {
@@ -28,19 +28,33 @@ const signupUser = async (req, res) => {
       password: hashedPassword,
       otp,
       otpExpiry: Date.now() + 5 * 60 * 1000, // 5 minutes
-      isVerified: false
+      isVerified: false,
     });
 
     await user.save();
 
     // Send OTP email (non-blocking)
-    sendOTPEmail(email, otp);
+    await emailQueue.add(
+  "send-otp",
+  {
+    type: "SEND_OTP",
+    data: { email, otp },
+  },
+  {
+    attempts: 3,
+    backoff: {
+      type: "exponential",
+      delay: 5000,
+    },
+    removeOnComplete: 10,
+    removeOnFail: 5,
+  }
+);
 
     res.json({
       success: true,
-      message: "OTP sent to email. Please verify your account."
+      message: "OTP sent to email. Please verify your account.",
     });
-
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: "Signup error" });
@@ -73,9 +87,8 @@ const verifyOTP = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Email verified successfully"
+      message: "Email verified successfully",
     });
-
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: "Verification error" });
@@ -96,7 +109,7 @@ const loginUser = async (req, res) => {
     if (!user.isVerified) {
       return res.json({
         success: false,
-        message: "Please verify your email first"
+        message: "Please verify your email first",
       });
     }
 
@@ -105,16 +118,12 @@ const loginUser = async (req, res) => {
       return res.json({ success: false, message: "Invalid credentials" });
     }
 
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET
-    );
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
 
     res.json({
       success: true,
-      token
+      token,
     });
-
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: "Login error" });
@@ -152,7 +161,7 @@ const checkAuth = async (req, res) => {
 
     res.json({
       success: true,
-      user
+      user,
     });
   } catch (error) {
     console.error(error);
@@ -160,11 +169,4 @@ const checkAuth = async (req, res) => {
   }
 };
 
-export {
-  signupUser,
-  verifyOTP,
-  loginUser,
-  logoutUser,
-  deleteUser,
-  checkAuth
-};
+export { signupUser, verifyOTP, loginUser, logoutUser, deleteUser, checkAuth };

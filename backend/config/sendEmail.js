@@ -20,7 +20,11 @@ transporter.verify((error, success) => {
 });
 
 // ================= SEND INVOICE EMAIL =================
-export const sendInvoiceEmail = async (userEmail, invoicePath, orderDetails) => {
+export const sendInvoiceEmail = async (
+  userEmail,
+  invoicePath,
+  orderDetails,
+) => {
   try {
     if (!userEmail) {
       console.warn("No user email provided. Skipping email.");
@@ -102,10 +106,8 @@ export const sendOTPEmail = async (userEmail, otp) => {
           <p style="font-size: 12px; color: gray;">
             If you did not request this, please ignore this email.
           </p>
-        </div>
-      `,
+        </div>`,
     };
-
     await transporter.sendMail(mailOptions);
     console.log(`OTP email sent to ${userEmail}`);
   } catch (error) {

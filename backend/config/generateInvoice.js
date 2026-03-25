@@ -55,7 +55,7 @@ export const generateInvoice = async (order, userDetails) => {
       doc.text(`${order.address.firstName} ${order.address.lastName}`);
       doc.text(order.address.street);
       doc.text(
-        `${order.address.city}, ${order.address.state} ${order.address.zipcode}`
+        `${order.address.city}, ${order.address.state} ${order.address.zipcode}`,
       );
       doc.text(`Phone: ${order.address.phone}`);
 
