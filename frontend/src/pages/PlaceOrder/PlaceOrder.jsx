@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./PlaceOrder.css";
 import axios from "axios";
@@ -10,6 +10,24 @@ const PlaceOrder = () => {
   const cartTotal = useAppSelector(selectCartTotal);
   const token = useAppSelector((state) => state.auth.token);
   const cartItems = useAppSelector((state) => state.cart.items);
+
+  const navigate = useNavigate();
+
+  // -------- IDEMPOTENCY KEY (PERSIST PER SUBMISSION) --------
+  const idempotencyKeyRef = useRef(null);
+
+  const IDEMPOTENCY_STORAGE_KEY = "order_idempotency_key";
+
+  const generateIdempotencyKey = () =>
+    `order_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+
+  const getStoredKey = () => sessionStorage.getItem(IDEMPOTENCY_STORAGE_KEY);
+  const setStoredKey = (key) =>
+    sessionStorage.setItem(IDEMPOTENCY_STORAGE_KEY, key);
+  const clearStoredKey = () =>
+    sessionStorage.removeItem(IDEMPOTENCY_STORAGE_KEY);
+
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const [data, setData] = useState({
     firstName: "",
@@ -26,33 +44,72 @@ const PlaceOrder = () => {
   const onChangehandler = (event) => {
     const name = event.target.name;
     const value = event.target.value;
-    setData((data) => ({ ...data, [name]: value }));
+    setData((prev) => ({ ...prev, [name]: value }));
   };
 
   const placeOrder = async (event) => {
     event.preventDefault();
-    const orderItems = Object.entries(cartItems)
-      .filter(([, qty]) => qty > 0)
-      .map(([itemId, quantity]) => ({ _id: itemId, quantity }));
 
-    const orderData = {
-      address: data,
-      items: orderItems,
-    };
-    let response = await axios.post(
-      API_BASE_URL + "/api/order/place",
-      orderData,
-      {
-        headers: { token },
+    if (isPlacingOrder) return; // prevent double click
+    setIsPlacingOrder(true);
+
+    try {
+      // -------- GENERATE KEY ONLY ONCE --------
+      if (!idempotencyKeyRef.current) {
+        const existingKey = getStoredKey();
+
+        if (existingKey) {
+          idempotencyKeyRef.current = existingKey;
+        } else {
+          const newKey = generateIdempotencyKey();
+          idempotencyKeyRef.current = newKey;
+          setStoredKey(newKey);
+        }
       }
-    );
-    if (response.data.success) {
-      const { session_url } = response.data;
-      window.location.replace(session_url);
-    } else alert("Error placing order: " + response.data.message);
-  };
 
-  const navigate = useNavigate();
+      const orderItems = Object.entries(cartItems)
+        .filter(([, qty]) => qty > 0)
+        .map(([itemId, quantity]) => ({
+          _id: itemId,
+          quantity,
+        }));
+
+      const orderData = {
+        address: data,
+        items: orderItems,
+      };
+
+      const response = await axios.post(
+        API_BASE_URL + "/api/order/place",
+        orderData,
+        {
+          headers: {
+            token,
+            "idempotency-key": idempotencyKeyRef.current,
+          },
+        },
+      );
+
+      if (response.data.success) {
+        const { session_url } = response.data;
+
+        // clear before redirect
+        clearStoredKey();
+
+        // redirect to Stripe
+        window.location.replace(session_url);
+      } else {
+        clearStoredKey();
+        setIsPlacingOrder(false);
+        alert("Error placing order: " + response.data.message);
+      }
+    } catch (error) {
+      console.error(error);
+      clearStoredKey();
+      setIsPlacingOrder(false);
+      alert("Order failed. Try again.");
+    }
+  };
 
   useEffect(() => {
     if (!token) {
@@ -66,6 +123,7 @@ const PlaceOrder = () => {
     <form onSubmit={placeOrder} className="place-order">
       <div className="place-order-left">
         <p className="title">Delivery Information</p>
+
         <div className="multi-fields">
           <input
             required
@@ -84,6 +142,7 @@ const PlaceOrder = () => {
             placeholder="Last name"
           />
         </div>
+
         <input
           required
           name="email"
@@ -92,6 +151,7 @@ const PlaceOrder = () => {
           type="text"
           placeholder="Email address"
         />
+
         <input
           required
           name="street"
@@ -100,6 +160,7 @@ const PlaceOrder = () => {
           type="text"
           placeholder="Street"
         />
+
         <div className="multi-fields">
           <input
             required
@@ -118,6 +179,7 @@ const PlaceOrder = () => {
             placeholder="State"
           />
         </div>
+
         <div className="multi-fields">
           <input
             required
@@ -136,6 +198,7 @@ const PlaceOrder = () => {
             placeholder="Country"
           />
         </div>
+
         <input
           required
           name="phone"
@@ -149,23 +212,31 @@ const PlaceOrder = () => {
       <div className="place-order-right">
         <div className="cart-total">
           <h2>Cart Total</h2>
+
           <div>
             <div className="cart-total-details">
               <p>Subtotal</p>
               <p>${cartTotal}</p>
             </div>
+
             <hr />
+
             <div className="cart-total-details">
               <p>Delivery Fee</p>
               <p>${cartTotal === 0 ? 0 : 2}</p>
             </div>
+
             <hr />
+
             <div className="cart-total-details">
               <b>Total</b>
               <b>${cartTotal === 0 ? 0 : cartTotal + 2}</b>
             </div>
           </div>
-          <button type="submit">PROCEED TO PAYMENT</button>
+
+          <button type="submit" disabled={isPlacingOrder}>
+            {isPlacingOrder ? "PROCESSING..." : "PROCEED TO PAYMENT"}
+          </button>
         </div>
       </div>
     </form>

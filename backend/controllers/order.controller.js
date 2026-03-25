@@ -1,13 +1,14 @@
-import mongoose from "mongoose";
-import orderModel from "../models/order.model.js";
-import foodModel from "../models/food.model.js";
-import { stripe } from "../config/stripe.js";
+import mongoose from "mongoose"
+import orderModel from "../models/order.model.js"
+import foodModel from "../models/food.model.js"
+import { stripe } from "../config/stripe.js"
+import redisClient from "../config/redis.js"
 
-const DELIVERY_FEE_USD = 2;
+const DELIVERY_FEE_USD = 2
 
-const toUsdCents = (usd) => Math.round(Number(usd) * 100);
+const toUsdCents = (usd) => Math.round(Number(usd) * 100)
 
-// @desc Place new order (prices from DB only; ignores client price/total)
+// @desc Place new order (IDEMPOTENT)
 // @route POST /api/order/place
 // @access Private
 const placeOrder = async (req, res) => {
@@ -18,6 +19,47 @@ const placeOrder = async (req, res) => {
     const address = req.body.address;
     const rawItems = req.body.items;
 
+    // ------------------ IDEMPOTENCY KEY ------------------
+    const idempotencyKey = req.headers["idempotency-key"];
+
+    if (!idempotencyKey) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing idempotency key",
+      });
+    }
+
+    // ------------------ REDIS LOCK ------------------
+    const lockKey = `order:lock:${idempotencyKey}`;
+
+    try {
+      const lock = await redisClient.set(lockKey, "1", {
+        NX: true,
+        EX: 30, // 30 sec lock
+      });
+
+      if (!lock) {
+        return res.status(429).json({
+          success: false,
+          message: "Duplicate request in progress",
+        });
+      }
+    } catch (err) {
+      console.error("Redis lock error:", err);
+      // do NOT block request if Redis fails
+    }
+
+    // ------------------ FAST DB CHECK ------------------
+    const existingOrder = await orderModel.findOne({ idempotencyKey });
+
+    if (existingOrder) {
+      return res.json({
+        success: true,
+        session_url: `${frontendUrl}/verify?success=true&orderId=${existingOrder._id}`,
+      });
+    }
+
+    // ------------------ VALIDATION ------------------
     if (!address || typeof address !== "object") {
       return res.status(400).json({
         success: false,
@@ -33,29 +75,35 @@ const placeOrder = async (req, res) => {
     }
 
     const normalizedItems = [];
+
     for (const row of rawItems) {
       const foodId = row._id ?? row.id;
       const quantity = Number(row.quantity);
+
       if (!foodId || !mongoose.Types.ObjectId.isValid(foodId)) {
         return res.status(400).json({
           success: false,
           message: "Invalid item id",
         });
       }
+
       if (!Number.isInteger(quantity) || quantity < 1) {
         return res.status(400).json({
           success: false,
           message: "Each item must have a positive integer quantity",
         });
       }
+
       normalizedItems.push({ foodId: String(foodId), quantity });
     }
 
+    // ------------------ BUILD ORDER ------------------
     const formattedItems = [];
     let subtotal = 0;
 
     for (const { foodId, quantity } of normalizedItems) {
       const food = await foodModel.findById(foodId).lean();
+
       if (!food) {
         return res.status(400).json({
           success: false,
@@ -64,6 +112,7 @@ const placeOrder = async (req, res) => {
       }
 
       const unitPrice = Number(food.price);
+
       if (Number.isNaN(unitPrice) || unitPrice < 0) {
         return res.status(500).json({
           success: false,
@@ -72,6 +121,7 @@ const placeOrder = async (req, res) => {
       }
 
       subtotal += unitPrice * quantity;
+
       formattedItems.push({
         _id: String(food._id),
         name: food.name,
@@ -90,10 +140,27 @@ const placeOrder = async (req, res) => {
       address,
       status: "pending",
       payment: false,
+      idempotencyKey,
     });
 
-    await newOrder.save();
+    // ------------------ SAVE WITH RACE HANDLING ------------------
+    let savedOrder;
 
+    try {
+      savedOrder = await newOrder.save();
+    } catch (err) {
+      if (err.code === 11000) {
+        const existingOrder = await orderModel.findOne({ idempotencyKey });
+
+        return res.json({
+          success: true,
+          session_url: `${frontendUrl}/verify?success=true&orderId=${existingOrder._id}`,
+        });
+      }
+      throw err;
+    }
+
+    // ------------------ STRIPE SESSION ------------------
     const line_items = formattedItems.map((item) => ({
       price_data: {
         currency: "usd",
@@ -116,12 +183,13 @@ const placeOrder = async (req, res) => {
       quantity: 1,
     });
 
-    const orderIdStr = String(newOrder._id);
+    const orderIdStr = String(savedOrder._id);
+
     const session = await stripe.checkout.sessions.create({
       line_items,
       mode: "payment",
-      success_url: `${frontendUrl}/verify?success=true&orderId=${newOrder._id}`,
-      cancel_url: `${frontendUrl}/verify?success=false&orderId=${newOrder._id}`,
+      success_url: `${frontendUrl}/verify?success=true&orderId=${orderIdStr}`,
+      cancel_url: `${frontendUrl}/verify?success=false&orderId=${orderIdStr}`,
       payment_method_types: ["card"],
       client_reference_id: orderIdStr,
       metadata: {
@@ -134,7 +202,7 @@ const placeOrder = async (req, res) => {
     console.error("Error creating order:", error);
     res.status(500).json({ success: false, message: error.message });
   }
-};
+}
 
 // @desc Get my orders
 // @route POST /api/order/userorders
@@ -147,10 +215,10 @@ const userOrders = async (req, res) => {
     console.log(error);
     res.json({ success: false, message: "error" });
   }
-};
+}
 
-// @desc Poll payment status (read-only; payment is set by Stripe webhook)
-// @route GET /api/order/payment-status/:orderId
+// @desc Get my orders
+// @route POST /api/order/userorders
 // @access Private
 const getOrderPaymentStatus = async (req, res) => {
   try {
@@ -179,7 +247,7 @@ const getOrderPaymentStatus = async (req, res) => {
     console.error(error);
     res.status(500).json({ success: false, message: "Error" });
   }
-};
+}
 
 // @desc List all orders (Admin)
 const listOrders = async (req, res) => {
@@ -190,7 +258,7 @@ const listOrders = async (req, res) => {
     console.log(error);
     res.json({ success: false, message: "Error" });
   }
-};
+}
 
 // @desc Update order status (Admin)
 const updateStatus = async (req, res) => {
@@ -203,7 +271,7 @@ const updateStatus = async (req, res) => {
     console.log(error);
     res.json({ success: false, message: "Error" });
   }
-};
+}
 
 export {
   placeOrder,
@@ -211,4 +279,4 @@ export {
   getOrderPaymentStatus,
   listOrders,
   updateStatus,
-};
+}
