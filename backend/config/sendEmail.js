@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import fs from "fs";
+import logger from "./logger.js";
 
 // ================= TRANSPORTER =================
 const transporter = nodemailer.createTransport({
@@ -13,9 +14,9 @@ const transporter = nodemailer.createTransport({
 // Verify transporter on startup
 transporter.verify((error, success) => {
   if (error) {
-    console.error("Email service error:", error);
+    logger.error("Email service error", { error });
   } else {
-    console.log("Email service is ready");
+    logger.info("Email service ready");
   }
 });
 
@@ -27,7 +28,7 @@ export const sendInvoiceEmail = async (
 ) => {
   try {
     if (!userEmail) {
-      console.warn("No user email provided. Skipping email.");
+      logger.warn("Missing user email for invoice");
       return;
     }
 
@@ -40,7 +41,7 @@ export const sendInvoiceEmail = async (
         path: invoicePath,
       });
     } else {
-      console.warn("Invoice file not found. Sending email without attachment.");
+      logger.warn("Invoice file not found. Sending email without attachment.");
     }
 
     const mailOptions = {
@@ -75,9 +76,9 @@ export const sendInvoiceEmail = async (
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Invoice email sent to ${userEmail}`);
+    logger.info("Invoice email sent", { email: userEmail });
   } catch (error) {
-    console.error("Error sending invoice email:", error.message);
+    logger.error("Invoice email failed", { error: error.message });
   }
 };
 
@@ -85,7 +86,7 @@ export const sendInvoiceEmail = async (
 export const sendOTPEmail = async (userEmail, otp) => {
   try {
     if (!userEmail) {
-      console.warn("No email provided for OTP.");
+      logger.warn("Missing email for OTP");
       return;
     }
 
@@ -109,8 +110,8 @@ export const sendOTPEmail = async (userEmail, otp) => {
         </div>`,
     };
     await transporter.sendMail(mailOptions);
-    console.log(`OTP email sent to ${userEmail}`);
+    logger.info("OTP email sent", { email: userEmail });
   } catch (error) {
-    console.error("Error sending OTP email:", error.message);
+    logger.error("OTP email failed", { error: error.message });
   }
 };

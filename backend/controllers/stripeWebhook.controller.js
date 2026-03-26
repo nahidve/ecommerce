@@ -3,6 +3,7 @@ import userModel from "../models/user.model.js"
 import { stripe } from "../config/stripe.js"
 import { emailQueue } from "../queues/email.queue.js";
 import redisClient from "../config/redis.js"
+import logger from "../config/logger.js";
 
 /**
  * Stripe webhook — must use raw body (see server.js).
@@ -11,7 +12,7 @@ import redisClient from "../config/redis.js"
 export const handleStripeWebhook = async (req, res) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   if (!webhookSecret) {
-    console.error("STRIPE_WEBHOOK_SECRET is not set");
+    logger.error("Missing STRIPE_WEBHOOK_SECRET");
     return res.status(500).send("Webhook misconfigured");
   }
 
@@ -24,7 +25,7 @@ export const handleStripeWebhook = async (req, res) => {
   try {
     event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
   } catch (err) {
-    console.error("Stripe webhook signature verification failed:", err.message);
+    logger.error("Stripe webhook signature verification failed", { error: err.message });
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -36,7 +37,7 @@ export const handleStripeWebhook = async (req, res) => {
     const exists = await redisClient.get(cacheKey);
 
     if (exists) {
-      console.log("Duplicate webhook ignored:", eventId);
+      logger.warn("Duplicate webhook ignored", { eventId });
       return res.status(200).json({ received: true });
     }
 
@@ -46,7 +47,7 @@ export const handleStripeWebhook = async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Redis error (webhook):", err);
+    logger.error("Redis webhook error", { error: err.message });
     // Do NOT block webhook if Redis fails
   }
   // REDIS IDEMPOTENCY CHECK END
@@ -57,9 +58,7 @@ export const handleStripeWebhook = async (req, res) => {
       session.metadata?.orderId || session.client_reference_id || null;
 
     if (!orderId) {
-      console.error(
-        "checkout.session.completed: no orderId (metadata.orderId / client_reference_id missing)"
-      );
+      logger.error("Missing orderId in webhook");
       return res.json({ received: true });
     }
 
@@ -71,13 +70,11 @@ export const handleStripeWebhook = async (req, res) => {
       );
 
       if (!order) {
-        console.warn(
-          `Stripe webhook: no unpaid order matched id=${orderId} (already paid or unknown id)`
-        );
+        logger.warn("Order not found or already paid", { orderId });
         return res.json({ received: true });
       }
 
-      console.log(`Stripe webhook: order ${orderId} marked paid`);
+      logger.info("Order marked paid", { orderId });
 
       await userModel.findByIdAndUpdate(order.userId, { cartData: {} });
 
@@ -101,7 +98,7 @@ export const handleStripeWebhook = async (req, res) => {
       );
       return;
     } catch (err) {
-      console.error("Webhook order update error:", err);
+      logger.error("Webhook order update failed", { error: err.message });
       return res.status(500).json({ received: false });
     }
   }

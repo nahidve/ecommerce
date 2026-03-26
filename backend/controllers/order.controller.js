@@ -3,6 +3,7 @@ import orderModel from "../models/order.model.js";
 import foodModel from "../models/food.model.js";
 import { stripe } from "../config/stripe.js";
 import { acquireLock } from "../config/redis.js";
+import logger from "../config/logger.js";
 
 const DELIVERY_FEE_USD = 2;
 const toUsdCents = (usd) => Math.round(Number(usd) * 100);
@@ -18,7 +19,6 @@ const placeOrder = async (req, res) => {
     const address = req.body.address;
     const rawItems = req.body.items;
 
-    // ------------------ IDEMPOTENCY KEY ------------------
     const idempotencyKey = req.headers["idempotency-key"];
 
     if (!idempotencyKey) {
@@ -28,32 +28,31 @@ const placeOrder = async (req, res) => {
       });
     }
 
-    // ------------------ REDIS LOCK ------------------
     const lockKey = `order:lock:${idempotencyKey}`;
     try {
       const lock = await acquireLock(lockKey);
+
       if (!lock) {
+        logger.warn("Duplicate order request blocked", { idempotencyKey });
         return res.status(429).json({
           success: false,
           message: "Duplicate request in progress",
         });
       }
     } catch (err) {
-      console.error("Redis lock error:", err);
-      // do NOT block request if Redis fails
+      logger.warn("Redis lock failed", { error: err.message });
     }
 
-    // ------------------ FAST DB CHECK ------------------
     const existingOrder = await orderModel.findOne({ idempotencyKey });
 
     if (existingOrder) {
+      logger.info("Idempotent order reused", { idempotencyKey });
       return res.json({
         success: true,
         session_url: `${frontendUrl}/verify?success=true&orderId=${existingOrder._id}`,
       });
     }
 
-    // ------------------ VALIDATION ------------------
     if (!address || typeof address !== "object") {
       return res.status(400).json({
         success: false,
@@ -91,7 +90,6 @@ const placeOrder = async (req, res) => {
       normalizedItems.push({ foodId: String(foodId), quantity });
     }
 
-    // ------------------ BUILD ORDER ------------------
     const formattedItems = [];
     let subtotal = 0;
 
@@ -137,7 +135,6 @@ const placeOrder = async (req, res) => {
       idempotencyKey,
     });
 
-    // ------------------ SAVE WITH RACE HANDLING ------------------
     let savedOrder;
 
     try {
@@ -145,6 +142,10 @@ const placeOrder = async (req, res) => {
     } catch (err) {
       if (err.code === 11000) {
         const existingOrder = await orderModel.findOne({ idempotencyKey });
+
+        logger.info("Race condition handled via DB unique constraint", {
+          idempotencyKey,
+        });
 
         return res.json({
           success: true,
@@ -154,7 +155,12 @@ const placeOrder = async (req, res) => {
       throw err;
     }
 
-    // ------------------ STRIPE SESSION ------------------
+    logger.info("Order created", {
+      orderId: savedOrder._id,
+      userId,
+      amount: totalAmount,
+    });
+
     const line_items = formattedItems.map((item) => ({
       price_data: {
         currency: "usd",
@@ -185,29 +191,27 @@ const placeOrder = async (req, res) => {
       metadata: { orderId: orderIdStr },
     });
 
+    logger.info("Stripe session created", { orderId: orderIdStr });
+
     res.json({ success: true, session_url: session.url });
   } catch (error) {
-    console.error("Error creating order:", error);
+    logger.error("Order creation failed", { error: error.message });
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // @desc Get my orders
-// @route POST /api/order/userorders
-// @access Private
 const userOrders = async (req, res) => {
   try {
     const orders = await orderModel.find({ userId: req.body.userId });
     res.json({ success: true, data: orders });
   } catch (error) {
-    console.log(error);
+    logger.error("Fetch user orders failed", { error: error.message });
     res.json({ success: false, message: "error" });
   }
 };
 
-// @desc Get my orders
-// @route POST /api/order/userorders
-// @access Private
+// @desc Payment status
 const getOrderPaymentStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -236,7 +240,7 @@ const getOrderPaymentStatus = async (req, res) => {
       status: order.status,
     });
   } catch (error) {
-    console.error(error);
+    logger.error("Fetch payment status failed", { error: error.message });
     res.status(500).json({ success: false, message: "Error" });
   }
 };
@@ -247,7 +251,7 @@ const listOrders = async (req, res) => {
     const orders = await orderModel.find({});
     res.json({ success: true, data: orders });
   } catch (error) {
-    console.log(error);
+    logger.error("List orders failed", { error: error.message });
     res.json({ success: false, message: "Error" });
   }
 };
@@ -258,9 +262,15 @@ const updateStatus = async (req, res) => {
     await orderModel.findByIdAndUpdate(req.body.orderId, {
       status: req.body.status,
     });
+
+    logger.info("Order status updated", {
+      orderId: req.body.orderId,
+      status: req.body.status,
+    });
+
     res.json({ success: true, message: "Status Updated" });
   } catch (error) {
-    console.log(error);
+    logger.error("Update status failed", { error: error.message });
     res.json({ success: false, message: "Error" });
   }
 };

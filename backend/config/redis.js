@@ -1,4 +1,5 @@
 import { createClient } from "redis";
+import logger from "./logger.js";
 
 const redisClient = createClient({
   username: "default",
@@ -10,7 +11,7 @@ const redisClient = createClient({
 });
 
 redisClient.on("connect", () => {
-  console.log("Redis connected");
+  logger.info("Redis connected");
 });
 
 redisClient.on("error", (err) => {
@@ -21,9 +22,10 @@ export const connectRedis = async () => {
   try {
     await redisClient.connect();
   } catch (err) {
-    console.error("Redis connection failed → continuing without Redis");
+    logger.error("Redis error", { error: err.message });
+    logger.error("Redis connection failed, fallback to DB");
   }
-};
+}
 
 // Safe GET (returns null if Redis fails)
 export const safeRedisGet = async (key) => {
@@ -31,7 +33,7 @@ export const safeRedisGet = async (key) => {
     if (!redisClient.isOpen) return null;
     return await redisClient.get(key);
   } catch (err) {
-    console.error("Redis GET failed:", err.message);
+    logger.warn("Redis GET failed", { error: err.message });
     return null;
   }
 };
@@ -68,7 +70,7 @@ export const acquireLock = async (key, ttlSeconds = 30) => {
 
     return !!result; // true if lock acquired
   } catch (err) {
-    console.error("Redis LOCK failed → fallback to DB:", err.message);
+    logger.warn("Redis LOCK failed, fallback to DB", { error: err.message });
     return true; // allow request (DB will protect)
   }
 };
