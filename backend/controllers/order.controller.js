@@ -249,6 +249,18 @@ const getOrderPaymentStatus = async (req, res) => {
 const listOrders = async (req, res) => {
   try {
     const orders = await orderModel.find({});
+
+    for (const order of orders) {
+      if (order.status === "Refunded" && order.payment === true) {
+        logger.warn("Auto-fixing inconsistent order state", {
+          orderId: order._id,
+        });
+
+        order.payment = false;
+        await order.save();
+      }
+    }
+
     res.json({ success: true, data: orders });
   } catch (error) {
     logger.error("List orders failed", { error: error.message });
@@ -259,19 +271,96 @@ const listOrders = async (req, res) => {
 // @desc Update order status (Admin)
 const updateStatus = async (req, res) => {
   try {
-    await orderModel.findByIdAndUpdate(req.body.orderId, {
-      status: req.body.status,
-    });
+    const { orderId, status } = req.body;
 
-    logger.info("Order status updated", {
-      orderId: req.body.orderId,
-      status: req.body.status,
-    });
+    // Block invalid usage first
+    if (status === "Refunded") {
+      return res.json({
+        success: false,
+        message: "Use refund API instead",
+      });
+    }
+
+    const order = await orderModel.findById(orderId);
+
+    if (!order) {
+      return res.json({ success: false, message: "Order not found" });
+    }
+
+    // 🔍 Consistency check
+    if (order.status === "Refunded" && order.payment === true) {
+      logger.error("Inconsistent state detected", { orderId });
+    }
+
+    // Update status safely
+    order.status = status;
+    await order.save();
+
+    logger.info("Order status updated", { orderId, status });
 
     res.json({ success: true, message: "Status Updated" });
+
   } catch (error) {
     logger.error("Update status failed", { error: error.message });
     res.json({ success: false, message: "Error" });
+  }
+};
+
+const refundOrder = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+
+    const order = await orderModel.findById(orderId);
+    if (!order) {
+      return res.json({ success: false, message: "Order not found" });
+    }
+
+    if (order.status === "Refunded" && order.payment === true) {
+      logger.warn("Auto-fixing before refund", { orderId });
+      order.payment = false;
+      await order.save();
+
+      return res.json({
+        success: true,
+        message: "Order already refunded (state corrected)",
+      });
+    }
+
+    if (!order.payment) {
+      return res.json({ success: false, message: "Order not paid" });
+    }
+
+    if (!order.paymentIntentId) {
+      return res.json({
+        success: false,
+        message: "Missing payment intent",
+      });
+    }
+
+    if (order.status === "Refunded") {
+      return res.json({
+        success: false,
+        message: "Already refunded",
+      });
+    }
+
+    // Stripe refund
+    await stripe.refunds.create({
+      payment_intent: order.paymentIntentId,
+    });
+
+    // Update DB
+    order.payment = false;
+    order.status = "Refunded";
+    await order.save();
+
+    logger.info("Order refunded", { orderId });
+
+    res.json({ success: true, message: "Refund successful" });
+
+  } catch (error) {
+    logger.error("Refund failed", { error: error.message });
+    res.json({ success: false, message: "Refund failed" });
   }
 };
 
@@ -281,4 +370,5 @@ export {
   getOrderPaymentStatus,
   listOrders,
   updateStatus,
+  refundOrder
 };

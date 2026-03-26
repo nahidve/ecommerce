@@ -17,6 +17,7 @@ const orderSchema = new mongoose.Schema(
     status: { type: String, default: "Food Processing" },
     date: { type: Date, default: Date.now() },
     payment: { type: Boolean, default: false },
+    paymentIntentId: { type: String },
     idempotencyKey: { type: String, required: true, unique: true },
   }, { timestamps: true }
 )

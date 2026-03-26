@@ -65,7 +65,12 @@ export const handleStripeWebhook = async (req, res) => {
     try {
       const order = await orderModel.findOneAndUpdate(
         { _id: orderId, payment: false },
-        { $set: { payment: true } },
+        {
+          $set: {
+            payment: true,
+            paymentIntentId: session.payment_intent
+          }
+        },
         { new: true }
       );
 
