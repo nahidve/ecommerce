@@ -251,12 +251,13 @@ const listOrders = async (req, res) => {
     const orders = await orderModel.find({});
 
     for (const order of orders) {
-      if (order.status === "Refunded" && order.payment === true) {
-        logger.warn("Auto-fixing inconsistent order state", {
+      if (order.refundedAmount >= order.amount && order.payment === true) {
+        logger.warn("Auto-fixing full refund inconsistency", {
           orderId: order._id,
         });
 
         order.payment = false;
+        order.status = "Refunded";
         await order.save();
       }
     }
@@ -299,7 +300,6 @@ const updateStatus = async (req, res) => {
     logger.info("Order status updated", { orderId, status });
 
     res.json({ success: true, message: "Status Updated" });
-
   } catch (error) {
     logger.error("Update status failed", { error: error.message });
     res.json({ success: false, message: "Error" });
@@ -308,22 +308,12 @@ const updateStatus = async (req, res) => {
 
 const refundOrder = async (req, res) => {
   try {
-    const { orderId } = req.body;
+    const { orderId, amount } = req.body; // amount is optional
 
     const order = await orderModel.findById(orderId);
+
     if (!order) {
       return res.json({ success: false, message: "Order not found" });
-    }
-
-    if (order.status === "Refunded" && order.payment === true) {
-      logger.warn("Auto-fixing before refund", { orderId });
-      order.payment = false;
-      await order.save();
-
-      return res.json({
-        success: true,
-        message: "Order already refunded (state corrected)",
-      });
     }
 
     if (!order.payment) {
@@ -337,26 +327,48 @@ const refundOrder = async (req, res) => {
       });
     }
 
-    if (order.status === "Refunded") {
+    // Calculate remaining refundable amount
+    const alreadyRefunded = order.refundedAmount || 0;
+    const remaining = order.amount - alreadyRefunded;
+
+    // If no amount passed → full remaining refund
+    const refundAmount = amount ? Number(amount) : remaining;
+
+    if (refundAmount <= 0) {
       return res.json({
         success: false,
-        message: "Already refunded",
+        message: "Invalid refund amount",
       });
     }
 
-    // Stripe refund
+    // Prevent over-refund
+    if (refundAmount > remaining) {
+      return res.json({
+        success: false,
+        message: `Max refundable amount is ${remaining}`,
+      });
+    }
+
+    // Stripe expects cents
+    const refundAmountCents = Math.round(refundAmount * 100);
+
     await stripe.refunds.create({
       payment_intent: order.paymentIntentId,
+      amount: refundAmountCents,
     });
 
-    // Update DB
-    order.payment = false;
-    order.status = "Refunded";
-    await order.save();
+    logger.info("Refund requested", {
+      orderId,
+      refundAmount,
+    });
 
-    logger.info("Order refunded", { orderId });
+    // DO NOT update DB here
+    // Webhook will handle truth
 
-    res.json({ success: true, message: "Refund successful" });
+    res.json({
+      success: true,
+      message: "Refund initiated",
+    });
 
   } catch (error) {
     logger.error("Refund failed", { error: error.message });
@@ -370,5 +382,5 @@ export {
   getOrderPaymentStatus,
   listOrders,
   updateStatus,
-  refundOrder
+  refundOrder,
 };

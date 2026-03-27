@@ -6,6 +6,7 @@ import { assets } from "../../assets/assets.js";
 
 const Orders = ({ url }) => {
   const [orders, setOrders] = useState([]);
+  const [refundAmounts, setRefundAmounts] = useState({});
 
   const fetchAllOrders = async () => {
     try {
@@ -35,19 +36,43 @@ const Orders = ({ url }) => {
     }
   };
 
-  const handleRefund = async (orderId) => {
+  const handleRefund = async (orderId, order) => {
     try {
+      const input = refundAmounts[orderId];
+      const remaining = order.amount - (order.refundedAmount || 0);
+
+      const amount = refundAmounts[orderId];
+
+      // Validation
+      if (amount !== undefined) {
+        if (isNaN(amount) || amount <= 0) {
+          return toast.error("Enter valid amount");
+        }
+
+        if (amount > remaining) {
+          return toast.error(`Max refundable: $${remaining}`);
+        }
+      }
+
       const response = await axios.post(url + "/api/order/refund", {
         orderId,
+        amount: amount ? Number(amount) : undefined,
       });
 
       if (response.data.success) {
-        toast.success("Refund successful");
+        toast.success(response.data.message);
+
+        // clear input after success
+        setRefundAmounts((prev) => ({
+          ...prev,
+          [orderId]: "",
+        }));
+
         fetchAllOrders();
       } else {
         toast.error(response.data.message);
       }
-    } catch (err) {
+    } catch {
       toast.error("Refund failed");
     }
   };
@@ -104,26 +129,62 @@ const Orders = ({ url }) => {
             </select>
 
             {/* Refund Button */}
-            <button
-              onClick={() => handleRefund(order._id)}
-              disabled={!order.payment || order.status === "Refunded"}
-              style={{
-                marginTop: "10px",
-                backgroundColor:
-                  !order.payment || order.status === "Refunded"
-                    ? "gray"
-                    : "red",
-                color: "white",
-                padding: "6px 10px",
-                border: "none",
-                cursor:
-                  !order.payment || order.status === "Refunded"
-                    ? "not-allowed"
-                    : "pointer",
-              }}
-            >
-              Refund
-            </button>
+            {/* Refund Controls */}
+            <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
+              <input
+                type="number"
+                min="0"
+                max={order.amount - (order.refundedAmount || 0)}
+                step="0.01"
+                placeholder="Amount"
+                value={refundAmounts[order._id] || ""}
+                onChange={(e) =>
+                  setRefundAmounts({
+                    ...refundAmounts,
+                    [order._id]: e.target.value,
+                  })
+                }
+                style={{
+                  width: "100px",
+                  padding: "5px",
+                }}
+              />
+
+              <button
+                onClick={() => handleRefund(order._id, order)}
+                disabled={
+                  !order.payment ||
+                  order.status === "Refunded" ||
+                  (order.refundedAmount || 0) >= order.amount
+                }
+                style={{
+                  backgroundColor:
+                    !order.payment ||
+                    order.status === "Refunded" ||
+                    (order.refundedAmount || 0) >= order.amount
+                      ? "gray"
+                      : "red",
+                  color: "white",
+                  padding: "6px 10px",
+                  border: "none",
+                  cursor:
+                    !order.payment ||
+                    order.status === "Refunded" ||
+                    (order.refundedAmount || 0) >= order.amount
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                Refund
+              </button>
+              <p>
+                Remaining Refund: $
+                {(order.amount - (order.refundedAmount || 0)).toFixed(2)}
+              </p>
+            </div>
+            {(order.refundedAmount || 0) >= order.amount && (
+              <p style={{ color: "green" }}>Fully Refunded</p>
+            )}
           </div>
         ))}
       </div>

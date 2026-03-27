@@ -9,8 +9,8 @@ const orderSchema = new mongoose.Schema(
         name: String,
         quantity: Number,
         price: Number,
-        rating: { type: Number, default: 0 }
-      }
+        rating: { type: Number, default: 0 },
+      },
     ],
     amount: { type: Number, required: true },
     address: { type: Object, required: true },
@@ -18,9 +18,18 @@ const orderSchema = new mongoose.Schema(
     date: { type: Date, default: Date.now() },
     payment: { type: Boolean, default: false },
     paymentIntentId: { type: String },
+    refundedAmount: { type: Number, default: 0 },
+    refundHistory: [
+      {
+        amount: { type: Number, required: true },
+        stripeRefundId: { type: String },
+        date: { type: Date, default: Date.now },
+      },
+    ],
     idempotencyKey: { type: String, required: true, unique: true },
-  }, { timestamps: true }
-)
+  },
+  { timestamps: true },
+);
 
 // Index for fetching user orders sorted by date (most common query)
 orderSchema.index({ userId: 1, createdAt: -1 });
@@ -40,6 +49,7 @@ orderSchema.index({ createdAt: -1 });
 // Compound index for order analytics by date range
 orderSchema.index({ createdAt: 1, status: 1, amount: 1 });
 
-const orderModel = mongoose.models.order || mongoose.model("order", orderSchema)
+const orderModel =
+  mongoose.models.order || mongoose.model("order", orderSchema);
 
-export default orderModel
+export default orderModel;

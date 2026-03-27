@@ -82,7 +82,7 @@ export const MyOrders = () => {
                   .join(", ")}
               </p>
 
-              {order.payment &&
+              {order.status !== "Refunded" &&
                 order.items.map((item) => {
                   const currentRating = item.rating || 0;
                   return (

@@ -4,8 +4,7 @@ import { useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 
-const Add = ({url}) => {
-
+const Add = ({ url }) => {
   const [image, setImage] = useState(false);
 
   const [data, setData] = useState({
@@ -37,14 +36,13 @@ const Add = ({url}) => {
         description: "",
         price: "",
         category: "Salad",
-      })
-       setImage(false)
-       toast.success(response.data.message)
+      });
+      setImage(false);
+      toast.success(response.data.message);
+    } else {
+      toast.error(response.data.message);
     }
-    else {
-        toast.error(response.data.message)
-    }
-  }
+  };
 
   return (
     <div className="add">

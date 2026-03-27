@@ -1,16 +1,13 @@
-import orderModel from "../models/order.model.js"
-import userModel from "../models/user.model.js"
-import { stripe } from "../config/stripe.js"
+import orderModel from "../models/order.model.js";
+import userModel from "../models/user.model.js";
+import { stripe } from "../config/stripe.js";
 import { emailQueue } from "../queues/email.queue.js";
-import redisClient from "../config/redis.js"
+import redisClient from "../config/redis.js";
 import logger from "../config/logger.js";
 
-/**
- * Stripe webhook — must use raw body (see server.js).
- * Marks order paid only after verified checkout.session.completed.
- */
 export const handleStripeWebhook = async (req, res) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+
   if (!webhookSecret) {
     logger.error("Missing STRIPE_WEBHOOK_SECRET");
     return res.status(500).send("Webhook misconfigured");
@@ -25,11 +22,15 @@ export const handleStripeWebhook = async (req, res) => {
   try {
     event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
   } catch (err) {
-    logger.error("Stripe webhook signature verification failed", { error: err.message });
+    logger.error("Stripe webhook signature verification failed", {
+      error: err.message,
+    });
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // REDIS IDEMPOTENCY CHECK START
+  // =========================
+  // REDIS IDEMPOTENCY
+  // =========================
   const eventId = event.id;
   const cacheKey = `stripe:event:${eventId}`;
 
@@ -41,19 +42,19 @@ export const handleStripeWebhook = async (req, res) => {
       return res.status(200).json({ received: true });
     }
 
-    // Mark as processed (24 hours)
     await redisClient.set(cacheKey, "processed", {
       EX: 86400,
     });
-
   } catch (err) {
     logger.error("Redis webhook error", { error: err.message });
-    // Do NOT block webhook if Redis fails
   }
-  // REDIS IDEMPOTENCY CHECK END
 
+  // =========================
+  // PAYMENT SUCCESS
+  // =========================
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
+
     const orderId =
       session.metadata?.orderId || session.client_reference_id || null;
 
@@ -68,8 +69,8 @@ export const handleStripeWebhook = async (req, res) => {
         {
           $set: {
             payment: true,
-            paymentIntentId: session.payment_intent
-          }
+            paymentIntentId: session.payment_intent,
+          },
         },
         { new: true }
       );
@@ -81,10 +82,13 @@ export const handleStripeWebhook = async (req, res) => {
 
       logger.info("Order marked paid", { orderId });
 
-      await userModel.findByIdAndUpdate(order.userId, { cartData: {} });
+      await userModel.findByIdAndUpdate(order.userId, {
+        cartData: {},
+      });
 
       res.json({ received: true });
 
+      // async email
       await emailQueue.add(
         "send-invoice",
         {
@@ -101,12 +105,83 @@ export const handleStripeWebhook = async (req, res) => {
           removeOnFail: 5,
         }
       );
+
       return;
     } catch (err) {
-      logger.error("Webhook order update failed", { error: err.message });
+      logger.error("Webhook order update failed", {
+        error: err.message,
+      });
       return res.status(500).json({ received: false });
     }
   }
 
+  // =========================
+  // REFUND HANDLING (NEW)
+  // =========================
+  if (event.type === "refund.created") {
+    const refund = event.data.object;
+
+    const paymentIntentId = refund.payment_intent;
+
+    try {
+      const order = await orderModel.findOne({ paymentIntentId });
+
+      if (!order) {
+        logger.warn("Refund webhook: order not found", { paymentIntentId });
+        return res.json({ received: true });
+      }
+
+      const refundAmount = refund.amount / 100; // cents → USD
+
+      // Prevent duplicate webhook processing
+      const alreadyExists = (order.refundHistory || []).some(
+        (r) => r.stripeRefundId === refund.id
+      );
+
+      if (alreadyExists) {
+        logger.warn("Duplicate refund webhook ignored", {
+          refundId: refund.id,
+        });
+        return res.json({ received: true });
+      }
+
+      // Initialize if missing
+      if (!order.refundedAmount) order.refundedAmount = 0;
+      if (!order.refundHistory) order.refundHistory = [];
+
+      // ✅ UPDATE REFUND DATA
+      order.refundedAmount = Math.min(
+        order.amount,
+        (order.refundedAmount || 0) + refundAmount
+      );
+
+      order.refundHistory.push({
+        amount: refundAmount,
+        stripeRefundId: refund.id,
+      });
+
+      // ✅ FULL REFUND CHECK
+      if (order.refundedAmount >= order.amount) {
+        order.status = "Refunded";
+        order.payment = false;
+      }
+
+      await order.save();
+
+      logger.info("Refund synced from webhook", {
+        orderId: order._id,
+        refundAmount,
+      });
+
+      return res.json({ received: true });
+    } catch (err) {
+      logger.error("Refund webhook failed", { error: err.message });
+      return res.status(500).json({ received: false });
+    }
+  }
+
+  // =========================
+  // DEFAULT
+  // =========================
   res.json({ received: true });
 };
