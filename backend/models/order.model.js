@@ -23,7 +23,7 @@ const orderSchema = new mongoose.Schema(
       {
         amount: { type: Number, required: true },
         stripeRefundId: { type: String },
-        date: { type: Date, default: Date.now },
+        createdAt: { type: Date, default: Date.now },
       },
     ],
     idempotencyKey: { type: String, required: true, unique: true },

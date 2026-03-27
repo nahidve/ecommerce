@@ -182,6 +182,20 @@ const Orders = ({ url }) => {
                 {(order.amount - (order.refundedAmount || 0)).toFixed(2)}
               </p>
             </div>
+            {order.refundHistory && order.refundHistory.length > 0 && (
+              <div style={{ marginTop: "10px", fontSize: "13px" }}>
+                <b>Refund History:</b>
+
+                {[...(order.refundHistory || [])]
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .map((r, idx) => (
+                    <p key={idx} style={{ margin: "2px 0", color: "#555" }}>
+                      • ${r.amount.toFixed(2)} —{" "}
+                      {new Date(r.createdAt).toLocaleString()}
+                    </p>
+                  ))}
+              </div>
+            )}
             {(order.refundedAmount || 0) >= order.amount && (
               <p style={{ color: "green" }}>Fully Refunded</p>
             )}

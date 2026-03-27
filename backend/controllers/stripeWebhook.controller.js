@@ -158,6 +158,7 @@ export const handleStripeWebhook = async (req, res) => {
       order.refundHistory.push({
         amount: refundAmount,
         stripeRefundId: refund.id,
+        createdAt: new Date(), //explicit timestamp
       });
 
       // ✅ FULL REFUND CHECK
