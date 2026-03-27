@@ -133,7 +133,7 @@ const Orders = ({ url }) => {
             <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
               <input
                 type="number"
-                min="0"
+                min="1"
                 max={order.amount - (order.refundedAmount || 0)}
                 step="0.01"
                 placeholder="Amount"

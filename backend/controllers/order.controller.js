@@ -306,6 +306,7 @@ const updateStatus = async (req, res) => {
   }
 };
 
+//@desc Refund order (Admin)
 const refundOrder = async (req, res) => {
   try {
     const { orderId, amount } = req.body; // amount is optional
@@ -320,6 +321,14 @@ const refundOrder = async (req, res) => {
       return res.json({ success: false, message: "Order not paid" });
     }
 
+    // Block zero or negative refunds
+    if (amount !== undefined && Number(amount) <= 0) {
+      return res.json({
+        success: false,
+        message: "Refund amount must be greater than 0",
+      });
+    }
+
     if (!order.paymentIntentId) {
       return res.json({
         success: false,
@@ -329,10 +338,17 @@ const refundOrder = async (req, res) => {
 
     // Calculate remaining refundable amount
     const alreadyRefunded = order.refundedAmount || 0;
-    const remaining = order.amount - alreadyRefunded;
+    const remaining = order.amount - (order.refundedAmount || 0);
 
     // If no amount passed → full remaining refund
     const refundAmount = amount ? Number(amount) : remaining;
+
+    if (amount && amount > remaining) {
+      return res.json({
+        success: false,
+        message: `Cannot refund more than remaining amount (${remaining})`,
+      });
+    }
 
     if (refundAmount <= 0) {
       return res.json({
