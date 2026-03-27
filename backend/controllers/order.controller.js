@@ -4,6 +4,7 @@ import foodModel from "../models/food.model.js";
 import { stripe } from "../config/stripe.js";
 import { acquireLock } from "../config/redis.js";
 import logger from "../config/logger.js";
+import crypto from "crypto";
 
 const DELIVERY_FEE_USD = 2;
 const toUsdCents = (usd) => Math.round(Number(usd) * 100);
@@ -311,10 +312,30 @@ const refundOrder = async (req, res) => {
   try {
     const { orderId, amount } = req.body; // amount is optional
 
+    const idempotencyKey = crypto
+      .createHash("sha256")
+      .update(orderId + ":" + (amount || "full"))
+      .digest("hex");
+
     const order = await orderModel.findById(orderId);
 
     if (!order) {
       return res.json({ success: false, message: "Order not found" });
+    }
+
+    // ✅ REDIS LOCK (ADD HERE)
+    const lockKey = `refund:${orderId}`;
+    try {
+      const lock = await acquireLock(lockKey, 10); // 10 sec
+
+      if (!lock) {
+        return res.json({
+          success: false,
+          message: "Refund already in progress",
+        });
+      }
+    } catch (err) {
+      logger.warn("Redis refund lock failed", { error: err.message });
     }
 
     if (!order.payment) {
@@ -338,10 +359,19 @@ const refundOrder = async (req, res) => {
 
     // Calculate remaining refundable amount
     const alreadyRefunded = order.refundedAmount || 0;
-    const remaining = order.amount - (order.refundedAmount || 0);
+    const remaining = order.amount - alreadyRefunded;
 
     // If no amount passed → full remaining refund
-    const refundAmount = amount ? Number(amount) : remaining;
+    const isAmountProvided = amount !== undefined && amount !== null && amount !== "";
+
+    if (!isAmountProvided) {
+      return res.json({
+        success: false,
+        message: "Refund amount is required",
+      });
+    }
+
+    const refundAmount = Number(amount);
 
     if (amount && amount > remaining) {
       return res.json({
@@ -357,7 +387,6 @@ const refundOrder = async (req, res) => {
       });
     }
 
-    // Prevent over-refund
     if (refundAmount > remaining) {
       return res.json({
         success: false,
@@ -368,18 +397,22 @@ const refundOrder = async (req, res) => {
     // Stripe expects cents
     const refundAmountCents = Math.round(refundAmount * 100);
 
-    await stripe.refunds.create({
-      payment_intent: order.paymentIntentId,
-      amount: refundAmountCents,
-    });
+    await stripe.refunds.create(
+      {
+        payment_intent: order.paymentIntentId,
+        ...(amount && { amount: refundAmountCents }),
+      },
+      {
+        idempotencyKey,
+      }
+    );
 
     logger.info("Refund requested", {
       orderId,
       refundAmount,
     });
 
-    // DO NOT update DB here
-    // Webhook will handle truth
+    // DO NOT update DB here (webhook handles it)
 
     res.json({
       success: true,

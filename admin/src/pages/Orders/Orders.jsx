@@ -7,6 +7,7 @@ import { assets } from "../../assets/assets.js";
 const Orders = ({ url }) => {
   const [orders, setOrders] = useState([]);
   const [refundAmounts, setRefundAmounts] = useState({});
+  const [loadingRefunds, setLoadingRefunds] = useState({});
 
   const fetchAllOrders = async () => {
     try {
@@ -38,7 +39,10 @@ const Orders = ({ url }) => {
 
   const handleRefund = async (orderId, order) => {
     try {
-      const input = refundAmounts[orderId];
+      if (loadingRefunds[orderId]) return;
+
+      setLoadingRefunds((prev) => ({ ...prev, [orderId]: true }));
+
       const remaining = order.amount - (order.refundedAmount || 0);
 
       const amount = refundAmounts[orderId];
@@ -74,6 +78,8 @@ const Orders = ({ url }) => {
       }
     } catch {
       toast.error("Refund failed");
+    } finally {
+      setLoadingRefunds((prev) => ({ ...prev, [orderId]: false }));
     }
   };
 
@@ -153,6 +159,7 @@ const Orders = ({ url }) => {
               <button
                 onClick={() => handleRefund(order._id, order)}
                 disabled={
+                  loadingRefunds[order._id] ||
                   !order.payment ||
                   order.status === "Refunded" ||
                   (order.refundedAmount || 0) >= order.amount
