@@ -35,21 +35,21 @@ const signupUser = async (req, res) => {
 
     // Send OTP email (non-blocking)
     await emailQueue.add(
-  "send-otp",
-  {
-    type: "SEND_OTP",
-    data: { email, otp },
-  },
-  {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 5000,
-    },
-    removeOnComplete: 10,
-    removeOnFail: 5,
-  }
-);
+      "send-otp",
+      {
+        type: "SEND_OTP",
+        data: { email, otp },
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 5000,
+        },
+        removeOnComplete: 10,
+        removeOnFail: 5,
+      },
+    );
 
     res.json({
       success: true,

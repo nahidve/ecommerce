@@ -23,41 +23,41 @@ const connection = {
   port: process.env.REDIS_PORT,
   username: "default",
   password: process.env.REDIS_PASSWORD,
-}
+};
 
 const worker = new Worker(
   "email-queue",
   async (job) => {
-    const { type, data } = job.data
+    const { type, data } = job.data;
 
     logger.info("Processing job", {
       jobId: job.id,
       type,
-    })
+    });
 
     if (type === "SEND_OTP") {
-      await sendOTPEmail(data.email, data.otp)
+      await sendOTPEmail(data.email, data.otp);
     }
 
     if (type === "SEND_INVOICE") {
-      const { order } = data
+      const { order } = data;
 
-      const user = await userModel.findById(order.userId)
-      const invoicePath = await generateInvoice(order, user)
+      const user = await userModel.findById(order.userId);
+      const invoicePath = await generateInvoice(order, user);
 
-      await sendInvoiceEmail(user?.email, invoicePath, order)
+      await sendInvoiceEmail(user?.email, invoicePath, order);
     }
   },
   { connection },
-)
+);
 
 worker.on("completed", (job) => {
-  logger.info("Job completed", { jobId: job.id })
-})
+  logger.info("Job completed", { jobId: job.id });
+});
 
 worker.on("failed", (job, err) => {
-    logger.error("Job failed", {
+  logger.error("Job failed", {
     jobId: job?.id,
     error: err.message,
-  })
-})
+  });
+});
