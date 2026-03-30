@@ -6,6 +6,7 @@
   box-sizing: border-box;
   font-family: 'Outfit', sans-serif;
   scroll-behavior: smooth;
+
 }
 
 body{
@@ -34,3 +35,4 @@ a{
   display: flex;
   justify-content: space-between;
 }
+

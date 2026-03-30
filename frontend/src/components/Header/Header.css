@@ -1,39 +1,125 @@
-.header{
-    height: 34vw;
-    margin: 30px auto;
-    background: url("./header_img.png") no-repeat center;
-    background-size: contain;
-    position: relative;
+/* components/Header/Header.css */
+
+.header {
+  position: relative;
+  height: 70vh;
+  min-height: 500px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 10px;
 }
 
-.header-contents{
-    position: absolute;
-    display: flex;
-    flex-direction: column;
-    align-items: start;
-    gap: 1.5vw;
-    max-width: 50%;
-    bottom: 10%;
-    left: 6vw;
-    font-family: Outfit, sans-serif;
-    animation: fadeIn 2s ease-in-out;
+/* Video styling */
+.header-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Ensures video covers entire area without distortion */
+  z-index: 0;
+  
 }
-.header-contents h2{
-    font-size: max(4.5vw, 22px);
-    color: white;
-    font-weight: 500;
+
+/* For YouTube iframe */
+.video-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  
 }
-.header-contents p{
-    font-size: 1.3vw;
-    color: white;
+
+.video-wrapper iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  pointer-events: none; /* Prevents clicking on video controls */
 }
-.header-contents button{
-    padding: 1vw 2.3vw;
-    background-color: white;
-    color: #747474;
-    border: none;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: max(1vw, 13px);
-    border-radius: 50px;
+
+/* Dark overlay for better text readability */
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5); /* Dark overlay */
+  z-index: 1;
+}
+
+/* Content styling */
+.header-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: white;
+  z-index: 2;
+  width: 90%;
+  max-width: 800px;
+}
+
+.header-content h2 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  font-weight: bold;
+}
+
+.header-content p {
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+}
+
+.header-content button {
+  padding: 12px 30px;
+  font-size: 1rem;
+  background-color: tomato;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.header-content button:hover {
+  background-color: #ff6347;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .header {
+    height: 50vh;
+    min-height: 400px;
+  }
+  
+  .header-content h2 {
+    font-size: 1.8rem;
+  }
+  
+  .header-content p {
+    font-size: 1rem;
+  }
+}
+
+/* Optional: Add a subtle zoom effect */
+@keyframes zoomIn {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.05);
+  }
+}
+
+.header-video {
+  animation: zoomIn 20s ease-in-out infinite alternate;
 }
