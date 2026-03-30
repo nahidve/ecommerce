@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "../../utils/axios";
 import { toast } from "react-toastify";
+import "./Login.css";
 
 const Login = ({ url }) => {
   const [data, setData] = useState({

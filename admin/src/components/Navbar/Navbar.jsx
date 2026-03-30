@@ -13,7 +13,7 @@ const Navbar = () => {
       <img className="profile" src={assets.profile_image} alt="" />
 
       {/* Logout Button */}
-      <button onClick={handleLogout} style={{ marginLeft: "20px" }}>
+      <button className="button" onClick={handleLogout} style={{ marginLeft: "20px" }}>
         Logout
       </button>
     </div>
