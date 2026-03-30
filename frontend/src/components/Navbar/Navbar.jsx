@@ -29,7 +29,7 @@ const Navbar = ({ setShowLogin }) => {
   }, [search, dispatch]);
 
   const logout = () => {
-    localStorage.removeItem("uuserToken");
+    localStorage.removeItem("userToken");
     dispatch(clearToken());
     navigate("/");
   };
