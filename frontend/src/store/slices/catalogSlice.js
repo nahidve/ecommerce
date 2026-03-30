@@ -4,9 +4,23 @@ import { API_BASE_URL } from "../constants.js";
 
 export const fetchFoodList = createAsyncThunk(
   "catalog/fetchFoodList",
-  async () => {
-    const response = await axios.get(`${API_BASE_URL}/api/food/list`);
-    return response.data.data;
+  async (filters = {}) => {
+    const params = new URLSearchParams();
+
+    if (filters.category) params.append("category", filters.category);
+    if (filters.minPrice) params.append("minPrice", filters.minPrice);
+    if (filters.maxPrice !== Infinity) params.append("maxPrice", filters.maxPrice);
+    if (filters.search) params.append("search", filters.search);
+
+    params.append("page", filters.page || 1);
+    params.append("limit", filters.limit || 8);
+
+
+    const response = await axios.get(
+      `${API_BASE_URL}/api/food/list?${params.toString()}`
+    );
+
+    return response.data;
   }
 );
 
@@ -14,6 +28,7 @@ const catalogSlice = createSlice({
   name: "catalog",
   initialState: {
     foodList: [],
+    pagination: {},
     status: "idle",
     error: null,
   },
@@ -26,7 +41,8 @@ const catalogSlice = createSlice({
       })
       .addCase(fetchFoodList.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.foodList = action.payload;
+        state.foodList = action.payload.data;
+        state.pagination = action.payload.pagination;
       })
       .addCase(fetchFoodList.rejected, (state, action) => {
         state.status = "failed";

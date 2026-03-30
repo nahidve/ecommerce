@@ -13,7 +13,6 @@ const StoreInitializer = ({ children }) => {
       dispatch(setToken(stored));
     }
     async function loadData() {
-      await dispatch(fetchFoodList());
       if (stored) {
         await dispatch(loadCart(stored));
       }

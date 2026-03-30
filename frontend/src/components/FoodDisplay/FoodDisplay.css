@@ -14,15 +14,6 @@
     gap: 30px;
     row-gap: 50px;
 }
-/* ⭐ Price Filter Container */
-/* .price-filter {
-  margin-bottom: 20px;
-  padding: 12px 15px;
-  border: 2px solid tomato;
-  border-radius: 8px;
-  display: inline-block;
-  background-color: #fff5f3;
-} */
 
 /* Title */
 .filter-title {
@@ -63,4 +54,16 @@
 }
 .price-inputs input:hover {
   border-color: #ff6347;
+}
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.pagination button {
+  padding: 8px 16px;
+  cursor: pointer;
 }

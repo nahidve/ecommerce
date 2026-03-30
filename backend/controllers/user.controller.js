@@ -118,23 +118,16 @@ const loginUser = async (req, res) => {
       return res.json({ success: false, message: "Invalid credentials" });
     }
 
-    // ✅ ADMIN CHECK
-    // if (user.role !== "admin") {
-    //   return res.json({
-    //     success: false,
-    //     message: "Access denied. Admins only.",
-    //   });
-    // }
-
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, 
+        role: user.role },
       process.env.JWT_SECRET
     );
 
     res.json({
       success: true,
       token,
-      role: user.role,
+      role: user
     });
   } catch (error) {
     console.error(error);

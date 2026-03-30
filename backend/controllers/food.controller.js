@@ -19,7 +19,8 @@ const addFood = async (req, res) => {
     })
 
     await food.save()
-    await redisClient.del("food_list");
+    //await redisClient.del("food_list");
+    await redisClient.flushAll(); // simple but effective for now
     res.status(201).json({ success: true, message: "Food Added Successfully" })
 
   } catch (error) {
@@ -33,33 +34,70 @@ const addFood = async (req, res) => {
 //@access Admin
 const listFood = async (req, res) => {
   try {
+    const { category, minPrice, maxPrice, search, page = 1, limit = 10 } = req.query;
+
+    // -------- BUILD FILTER OBJECT --------
+    let filter = {};
+
+    if (category && category !== "All") {
+      filter.category = category;
+    }
+
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
+
+    if (search) {
+      filter.$text = { $search: search };
+    }
+
+    // -------- PAGINATION --------
+    const pageNumber = Number(page) || 1;
+    const limitNumber = Number(limit) || 10;
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // -------- CACHE KEY (IMPORTANT) --------
+    const cacheKey = `food_list:${JSON.stringify({
+      filter,
+      page: pageNumber,
+      limit: limitNumber
+    })}`;
+
     // -------- TRY REDIS --------
-    const cacheKey = "food_list"
     const cached = await safeRedisGet(cacheKey);
     if (cached) {
-      console.log("Serving from REDIS")
       return res.status(200).json({
         success: true,
         data: JSON.parse(cached),
         source: "cache",
-      })
+      });
     }
-    console.log("Serving from DATABASE")
 
-     // -------- FALLBACK TO DB --------
-    const foods = await foodModel.find({}).lean();
+    // -------- DB QUERY --------
+    const [foods, total] = await Promise.all([
+      foodModel.find(filter).skip(skip).limit(limitNumber).lean(),
+      foodModel.countDocuments(filter),
+    ]);
 
-     // -------- CACHE (NON-BLOCKING) --------
-    safeRedisSet(cacheKey, JSON.stringify(foods), { EX: 3600 });
-
-    return res.status(200).json({
+    const response = {
       success: true,
       data: foods,
-      source: "db",
-    })
-    
+      pagination: {
+        total,
+        page: pageNumber,
+        pages: Math.ceil(total / limitNumber),
+      },
+    };
+
+    // -------- CACHE RESULT --------
+    safeRedisSet(cacheKey, JSON.stringify(foods), { EX: 3600 });
+
+    return res.status(200).json(response);
+
   } catch (error) {
-    console.error("Error fetching food list", error)
+    console.error("Error fetching food list", error);
     res.status(500).json({
       success: false,
       message: "Error fetching food list",
@@ -81,7 +119,8 @@ const removeFood = async (req, res) => {
 
     //remove food item from database
     await foodModel.findByIdAndDelete(req.body.id)
-    await redisClient.del("food_list");
+    //await redisClient.del("food_list");
+    await redisClient.flushAll(); // simple but effective for now
     res.status(200).json({ success: true, message: "Food Item Removed Successfully" })
 
   } catch (error) {

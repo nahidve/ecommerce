@@ -24,7 +24,7 @@ foodRouter.post("/add", authMiddleware, adminMiddleware, upload.single("image"),
 
 //@desc List Foods
 //@route GET /api/food/list
-//@access 
+//@access Public
 foodRouter.get("/list", listFood)
 
 //@desc Remove Food
@@ -34,7 +34,7 @@ foodRouter.delete("/remove", authMiddleware, adminMiddleware, removeFood)
 
 //@desc Rating Food
 //@route RATE /api/food/rate
-//@access Admin
+//@access Private
 foodRouter.post("/rate", authMiddleware, rateFood)
 
 export default foodRouter
