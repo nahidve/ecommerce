@@ -6,7 +6,8 @@
   min-height: 500px;
   width: 100%;
   overflow: hidden;
-  border-radius: 10px;
+  z-index: 1; /* Lower than navbar */
+  margin-top: 0; /* Ensure no margin pushing navbar */
 }
 
 /* Video styling */
