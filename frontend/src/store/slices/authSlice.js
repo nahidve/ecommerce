@@ -2,7 +2,7 @@ import { createSlice } from "@reduxjs/toolkit";
 
 function readStoredToken() {
   try {
-    return localStorage.getItem("token") || "";
+    return localStorage.getItem("userToken") || "";
   } catch {
     return "";
   }

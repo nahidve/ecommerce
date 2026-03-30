@@ -1,7 +1,7 @@
 import "./Add.css";
 import { assets } from "../../assets/assets";
 import { useState } from "react";
-import axios from "axios";
+import axios from "../../utils/axios";
 import { toast } from "react-toastify";
 
 const Add = ({ url }) => {
@@ -29,7 +29,11 @@ const Add = ({ url }) => {
     formData.append("category", data.category);
     formData.append("image", image);
 
-    const response = await axios.post(`${url}/api/food/add`, formData);
+    const response = await axios.post(`${url}/api/food/add`, formData, {
+      headers: {
+        token: localStorage.getItem("adminToken"),
+      },
+    });
     if (response.data.success) {
       setData({
         name: "",

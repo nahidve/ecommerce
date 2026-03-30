@@ -42,7 +42,7 @@ const LoginPopup = ({ setShowLogin }) => {
       }
 
       dispatch(setToken(response.data.token));
-      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("userToken", response.data.token);
       setShowLogin(false);
     } else {
       if (response.data.message === "Please verify your email first") {

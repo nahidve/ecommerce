@@ -28,7 +28,7 @@ const Verify = () => {
       return;
     }
 
-    const authToken = token || localStorage.getItem("token") || "";
+    const authToken = token || localStorage.getItem("userToken") || "";
     if (!authToken) {
       navigate("/cart");
       return;

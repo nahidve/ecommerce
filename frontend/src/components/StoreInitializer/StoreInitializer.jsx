@@ -8,7 +8,7 @@ const StoreInitializer = ({ children }) => {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    const stored = localStorage.getItem("token");
+    const stored = localStorage.getItem("userToken");
     if (stored) {
       dispatch(setToken(stored));
     }

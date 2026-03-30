@@ -11,7 +11,11 @@ const Orders = ({ url }) => {
 
   const fetchAllOrders = async () => {
     try {
-      const response = await axios.get(url + "/api/order/list");
+      const response = await axios.get(url + "/api/order/list", {
+        headers: {
+          token: localStorage.getItem("adminToken"),
+        },
+      });
       if (response.data.success) {
         setOrders(response.data.data);
       } else {
@@ -24,10 +28,18 @@ const Orders = ({ url }) => {
 
   const statusHandler = async (event, orderId) => {
     try {
-      const response = await axios.post(url + "/api/order/status", {
-        orderId,
-        status: event.target.value,
-      });
+      const response = await axios.post(
+        url + "/api/order/status",
+        {
+          orderId,
+          status: event.target.value,
+        },
+        {
+          headers: {
+            token: localStorage.getItem("adminToken"),
+          },
+        },
+      );
 
       if (response.data.success) {
         fetchAllOrders();
@@ -58,10 +70,18 @@ const Orders = ({ url }) => {
         }
       }
 
-      const response = await axios.post(url + "/api/order/refund", {
-        orderId,
-        amount: amount ? Number(amount) : undefined,
-      });
+      const response = await axios.post(
+        url + "/api/order/refund",
+        {
+          orderId,
+          amount: amount ? Number(amount) : undefined,
+        },
+        {
+          headers: {
+            token: localStorage.getItem("adminToken"),
+          },
+        },
+      );
 
       if (response.data.success) {
         toast.success(response.data.message);
