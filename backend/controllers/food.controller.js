@@ -1,7 +1,17 @@
 import foodModel from "../models/food.model.js"
 import orderModel from "../models/order.model.js"
 import fs from "fs"
-import { safeRedisGet, safeRedisSet } from "../config/redis.js";
+import redisClient, { safeRedisGet, safeRedisSet } from "../config/redis.js";
+
+// Safe flush all cache
+const safeRedisFlush = async () => {
+  try {
+    if (!redisClient.isOpen) return;
+    await redisClient.flushAll();
+  } catch (err) {
+    console.error("Redis flushAll failed:", err.message);
+  }
+};
 
 //@desc Add Food Item
 //@route POST /api/food/add
@@ -19,8 +29,7 @@ const addFood = async (req, res) => {
     })
 
     await food.save()
-    //await redisClient.del("food_list");
-    await redisClient.flushAll(); // simple but effective for now
+    await safeRedisFlush(); // flush cache safely
     res.status(201).json({ success: true, message: "Food Added Successfully" })
 
   } catch (error) {
@@ -65,8 +74,9 @@ const listFood = async (req, res) => {
       limit: limitNumber
     })}`;
 
-    // -------- TRY REDIS --------
-    const cached = await safeRedisGet(cacheKey);
+    // -------- TRY REDIS (skip cache for admin requests) --------
+    const isAdminRequest = !!req.headers.token;
+    const cached = isAdminRequest ? null : await safeRedisGet(cacheKey);
     if (cached) {
       return res.status(200).json({
         success: true,
@@ -112,15 +122,19 @@ const removeFood = async (req, res) => {
   try {
     const food = await foodModel.findById(req.body.id)
 
-    if (!food) return res.status(404).json({ success: false, message: "Food Item Does Not Exist" })
+    if (!food) {
+      console.log("Food not found in DB. Flushing cache to prevent ghost items...");
+      await redisClient.flushAll(); // Flush cache because it might be a ghost item
+      // Return 200 so the frontend fetchList() triggers and cleans the ghost item from the UI!
+      return res.status(200).json({ success: true, message: "Item was already removed! Cleaned up the list." })
+    }
 
     //remove image from uploads folder
     fs.unlink(`uploads/${food.image}`, () => { })
 
     //remove food item from database
     await foodModel.findByIdAndDelete(req.body.id)
-    //await redisClient.del("food_list");
-    await redisClient.flushAll(); // simple but effective for now
+    await safeRedisFlush(); // flush cache safely
     res.status(200).json({ success: true, message: "Food Item Removed Successfully" })
 
   } catch (error) {

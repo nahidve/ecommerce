@@ -7,7 +7,7 @@ const List = ({ url }) => {
   const [list, setList] = useState([]);
 
   const fetchList = async () => {
-    const response = await axios.get(`${url}/api/food/list`, {
+    const response = await axios.get(`${url}/api/food/list?limit=1000`, {
       headers: {
         token: localStorage.getItem("adminToken"),
       },
@@ -18,15 +18,18 @@ const List = ({ url }) => {
   };
 
   const removeFood = async (foodId) => {
-    const response = await axios.delete(`${url}/api/food/remove`, {
-      headers: {
-        token: localStorage.getItem("adminToken"),
-      },
-      data: { id: foodId },
-    });
-    await fetchList();
-    if (response.data.success) toast.success(response.data.message);
-    else toast.error("Error");
+    try {
+      const response = await axios.post(`${url}/api/food/remove`, { id: foodId }, {
+        headers: {
+          token: localStorage.getItem("adminToken"),
+        }
+      });
+      await fetchList();
+      if (response.data.success) toast.success(response.data.message);
+      else toast.error(response.data.message || "Error");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error removing food");
+    }
   };
 
   useEffect(() => {

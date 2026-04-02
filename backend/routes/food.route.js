@@ -28,9 +28,9 @@ foodRouter.post("/add", authMiddleware, adminMiddleware, upload.single("image"),
 foodRouter.get("/list", listFood)
 
 //@desc Remove Food
-//@route DELETE /api/food/remove
+//@route POST /api/food/remove
 //@access Admin
-foodRouter.delete("/remove", authMiddleware, adminMiddleware, removeFood)
+foodRouter.post("/remove", authMiddleware, adminMiddleware, removeFood)
 
 //@desc Rating Food
 //@route RATE /api/food/rate
