@@ -3,6 +3,7 @@ import { assets } from "../../assets/frontend_assets/assets.js";
 import { useAppDispatch, useAppSelector } from "../../store/hooks.js";
 import { API_BASE_URL } from "../../store/constants.js";
 import { addToCart, removeFromCart } from "../../store/slices/cartSlice.js";
+import Rating from "../Rating/Rating.jsx";
 
 const FoodItem = ({ id, name, price, description, image, rating }) => {
   const dispatch = useAppDispatch();
@@ -44,15 +45,7 @@ const FoodItem = ({ id, name, price, description, image, rating }) => {
       <div className="food-item-info">
         <div className="food-item-name-rating">
           <p>{name}</p>
-
-          {/* ⭐ Dynamic Rating */}
-          <div className="stars">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <span key={star}>
-                {star <= Math.round(rating || 0) ? "★" : "☆"}
-              </span>
-            ))}
-          </div>
+          <Rating rating={rating} />
         </div>
 
         <p className="food-item-description">{description}</p>

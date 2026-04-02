@@ -1,19 +1,66 @@
-.verify{
-    min-height: 60vh;
-    display: grid;
+.verify {
+    min-height: 80vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #fdfdfd;
+    font-family: 'Outfit', sans-serif;
 }
 
-.verify .spinner{
-    width: 60px;
-    height: 60px;
-    place-self: center;
-    border: 5px solid #bdbdbd;
-    border-top-color: tomato;
-    border-radius: 50%;
-    animation: rotate 1s infinite;
+.verify-container {
+    text-align: center;
+    background: #fff;
+    padding: 60px 50px;
+    border-radius: 20px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.02);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    max-width: 450px;
+    width: 90%;
+    animation: fadeIn 0.8s ease;
 }
+
+.verify .spinner {
+    width: 80px;
+    height: 80px;
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid tomato;
+    border-radius: 50%;
+    animation: rotate 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    margin-bottom: 10px;
+}
+
+.verify-container p {
+    font-size: 22px;
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+}
+
+.verify-container span {
+    font-size: 14px;
+    color: #888;
+    line-height: 1.5;
+}
+
 @keyframes rotate {
-    100% {
-        transform: rotate(360deg)
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 500px) {
+    .verify-container {
+        padding: 40px 20px;
+    }
+    .verify-container p {
+        font-size: 18px;
     }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./MyOrders.css";
 import axios from "axios";
 import { assets } from "../../assets/frontend_assets/assets.js";
@@ -12,7 +12,7 @@ export const MyOrders = () => {
   const token = useAppSelector((state) => state.auth.token);
   const [data, setData] = useState([]);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const response = await axios.post(
         url + "/api/order/userorders",
@@ -23,13 +23,13 @@ export const MyOrders = () => {
     } catch (error) {
       console.log("Error fetching orders:", error);
     }
-  };
+  }, [token, url]);
 
   useEffect(() => {
     if (token) {
       fetchOrders();
     }
-  }, [token]);
+  }, [token, fetchOrders]);
 
   const handleRating = async (orderId, foodId, rating) => {
     try {
@@ -67,55 +67,55 @@ export const MyOrders = () => {
   };
 
   return (
-    <div className="myorders">
+    <div className="my-orders">
       <h2>My Orders</h2>
 
       <div className="container">
         {data.map((order) => (
           <div key={order._id} className="my-orders-order">
-            <img src={assets.parcel_icon} alt="Parcel" />
+            <div className="order-icon-wrapper">
+              <img src={assets.parcel_icon} alt="Parcel" />
+            </div>
 
-            <div>
-              <p>
+            <div className="order-details">
+              <p className="order-items-list">
                 {order.items
                   .map((item) => `${item.name} x ${item.quantity}`)
                   .join(", ")}
               </p>
 
-              {
-                order.items.map((item) => {
+              <div className="order-ratings">
+                {order.items.map((item) => {
                   const currentRating = item.rating || 0;
                   return (
-                    <div key={item._id} style={{ marginTop: "5px" }}>
-                      <span>{item.name} : </span>
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <span
-                          key={star}
-                          style={{
-                            cursor: "pointer",
-                            fontSize: "18px",
-                            color: star <= currentRating ? "gold" : "#ccc",
-                            marginRight: "2px",
-                          }}
-                          onClick={() =>
-                            handleRating(order._id, item._id, star)
-                          }
-                        >
-                          ★
-                        </span>
-                      ))}
+                    <div key={item._id} className="single-rating">
+                      <span className="item-name">{item.name}</span>
+                      <div className="stars">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <span
+                            key={star}
+                            className={`star ${star <= currentRating ? "active" : ""}`}
+                            onClick={() =>
+                              handleRating(order._id, item._id, star)
+                            }
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
+              </div>
             </div>
 
-            <p>${order.amount}.00</p>
-            <p>Items: {order.items.length}</p>
-            <p>
-              <span>&#x25cf;</span> <b>{order.status}</b>
+            <p className="order-amount">${order.amount}.00</p>
+            <p className="order-item-count">Items: {order.items.length}</p>
+            <p className="order-status">
+              <span className="status-dot">&#x25cf;</span> <b>{order.status}</b>
             </p>
 
-            <button onClick={fetchOrders}>Track Order</button>
+            <button className="track-btn" onClick={fetchOrders}>Track Order</button>
           </div>
         ))}
       </div>

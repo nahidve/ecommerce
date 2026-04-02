@@ -68,7 +68,11 @@ const Verify = () => {
 
   return (
     <div className="verify">
-      <div className="spinner"></div>
+      <div className="verify-container">
+        <div className="spinner"></div>
+        <p>Verifying your payment...</p>
+        <span>Please do not refresh the page or close the window.</span>
+      </div>
     </div>
   );
 };

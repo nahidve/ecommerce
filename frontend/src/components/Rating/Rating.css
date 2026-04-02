@@ -1,0 +1,28 @@
+.rating-stars {
+  display: flex;
+  gap: 4px;
+}
+
+.star-icon {
+  font-size: 18px;
+  color: #e0e0e0;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.star-icon.filled {
+  color: #ffd000aa;
+  text-shadow: 0 0 10px rgba(255, 184, 0, 0.3);
+}
+
+.star-icon.clickable {
+  cursor: pointer;
+}
+
+.star-icon.clickable:hover {
+  transform: scale(1.3) rotate(5deg);
+  color: #ffb800;
+}
+
+.star-icon.clickable:active {
+  transform: scale(0.9);
+}
