@@ -2,42 +2,109 @@
   width: 70%;
   margin-left: max(5vw, 25px);
   margin-top: 50px;
-  color: #6d6d6d;
-  font-size: 16px;
+  margin-bottom: 50px;
+  color: #555;
+  font-size: 15px;
+  background: #ffffff;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  border: 1px solid #eee;
 }
 
 .add form {
-  gap: 20px;
+  gap: 25px;
 }
 
-.add-img-upload img {
-  width: 120px;
+.add p {
+  font-weight: 600;
+  color: #333;
 }
+
+.add-image-upload img {
+  width: 120px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  display: block;
+}
+
+.add-image-upload img:hover {
+  transform: scale(1.04);
+}
+
 .add-product-name,
 .add-product-description {
-  width: max(40%, 280px);
+  width: 100%;
+  max-width: 350px;
 }
 
 .add-product-name input,
 .add-product-description textarea {
-  padding: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: #fafafa;
+  outline: none;
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.add-product-name input:focus,
+.add-product-description textarea:focus {
+  border-color: tomato;
+  background: #fff;
 }
 
 .add-category-price {
   display: flex;
+  flex-wrap: wrap;
   gap: 30px;
 }
+
 .add-category-price select,
 .add-category-price input {
-  max-width: 120px;
-  padding: 10px;
+  width: 140px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: #fafafa;
+  outline: none;
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+  cursor: pointer;
+}
+
+.add-category-price select:focus,
+.add-category-price input:focus {
+  border-color: tomato;
+  background: #fff;
 }
 
 .add-btn {
-  max-width: 120px;
+  width: 130px;
   border: none;
-  padding: 10px;
-  background-color: black;
+  padding: 12px 0;
+  background: #111;
   color: white;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 15px;
   cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+}
+
+.add-btn:hover {
+  background: tomato;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(255, 99, 71, 0.3);
+}
+
+.add-btn:active {
+  transform: translateY(0);
 }
