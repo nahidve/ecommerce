@@ -1,9 +1,10 @@
-import { ChatForm } from "./components/ChatForm";
-import { ChatMessage } from "./components/ChatMessage";
-import { ChatbotIcon } from "./components/ChatbotIcon";
+import { ChatForm } from "./ChatForm";
+import { ChatMessage } from "./ChatMessage";
+import { ChatbotIcon } from "./ChatbotIcon";
 import { useState } from "react";
+import "./Chatbot.css";
 
-const App = () => {
+const Chatbot = () => {
   const [chatHistory, setChatHistory] = useState([]);
 
   const generateBotResponse = async (history) => {
@@ -78,4 +79,4 @@ const App = () => {
   );
 };
 
-export default App;
+export default Chatbot;
