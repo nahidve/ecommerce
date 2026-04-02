@@ -1,51 +1,137 @@
-.explore-menu{
+.explore-menu {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 25px;
     padding-top: 80px;
-}
-.explore-menu h1{
-    font-weight: 500;
-    color: #262626;
-}
-.explore-menu-text{
-    columns: #808080;
-    max-width: 60%;
-}
-.explore-menu-list{
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 30px;
-    text-align: center;
-    margin: 20px 0px;
-    overflow-x: scroll;
+    font-family: 'Outfit', sans-serif;
 }
 
-.explore-menu-list::-webkit-scrollbar{
+.explore-menu h1 {
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 700;
+    color: #222;
+    letter-spacing: -0.8px;
+    margin: 0;
+}
+
+.explore-menu-text {
+    color: #666;
+    max-width: 65%;
+    line-height: 1.6;
+    font-size: 16px;
+    letter-spacing: 0.2px;
+}
+
+.explore-menu-list {
+    display: flex;
+    align-items: center;
+    gap: 35px;
+    text-align: center;
+    margin: 30px 0px;
+    padding: 15px 5px 30px; /* Added padding to prevent bottom box-shadow cutoff */
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    /* Hide scrollbar for a cleaner look */
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+
+.explore-menu-list::-webkit-scrollbar {
     display: none;
 }
-.explore-menu-list-item img{
-    width: 7.5vw;
-    min-width: 80px;
+
+.explore-menu-list-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
     cursor: pointer;
-    border-radius: 50%;
-    transition: 0.2s;
+    /* Remove text selection highlighting */
+    user-select: none;
 }
 
-.explore-menu-list-item p{
-    margin-top: 10px;
-    color: #747474;
-    font-size: max(1.4vw,16px);
-    cursor: pointer;
+/* Image styles */
+.explore-menu-list-item img {
+    width: 8.5vw;
+    min-width: 90px;
+    border-radius: 50%;
+    transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    object-fit: cover;
 }
-.explore-menu hr{
-    margin: 10px 0px;
-    height: 2px;
-    background-color: #e2e2e2;
+
+/* Hover effects */
+.explore-menu-list-item:hover img {
+    transform: translateY(-8px) scale(1.05);
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.12);
+}
+
+.explore-menu-list-item:active img {
+    transform: translateY(2px) scale(0.95);
+    transition: all 0.1s ease;
+}
+
+/* Active ring effect (Tomato color) */
+.explore-menu-list-item .active {
+    box-shadow: 0 0 0 4px #fff, 0 0 0 7px tomato, 0 12px 24px rgba(255, 99, 71, 0.35);
+    transform: scale(1.03);
+}
+
+.explore-menu-list-item:hover .active {
+    /* Keep the hover animation but preserve the shadow ring */
+    transform: translateY(-8px) scale(1.05); 
+    box-shadow: 0 0 0 4px #fff, 0 0 0 7px tomato, 0 18px 30px rgba(255, 99, 71, 0.4);
+}
+
+/* Text styles */
+.explore-menu-list-item p {
+    color: #777;
+    font-size: max(1.3vw, 15px);
+    font-weight: 500;
+    transition: all 0.3s ease;
+    margin: 0;
+}
+
+/* Change text color when hovering over the item */
+.explore-menu-list-item:hover p {
+    color: #333;
+}
+
+/* Highlight text if the image is active */
+.explore-menu-list-item .active + p {
+    color: tomato;
+    font-weight: 700;
+    transform: scale(1.05); /* Slight text bump */
+}
+
+/* Bottom separator line */
+.explore-menu hr {
+    margin: 10px 0px 0px;
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(0,0,0,0.08), transparent);
     border: none;
 }
-.explore-menu-list-item .active{
-    border: 1px solid tomato;
-    padding: 2px;
+
+/* Responsive constraints */
+@media (max-width: 1050px) {
+    .explore-menu-text {
+        max-width: 100%;
+        font-size: 15px;
+    }
+}
+
+@media (max-width: 600px) {
+    .explore-menu-list {
+        gap: 22px;
+        padding-bottom: 25px;
+    }
+    .explore-menu-list-item img {
+        min-width: 75px;
+    }
+    .explore-menu h1 {
+        text-align: center;
+    }
+    .explore-menu-text {
+        text-align: center;
+    }
 }

@@ -18,7 +18,7 @@ const FoodDisplay = ({ category }) => {
 
   const [page, setPage] = useState(1);
 
-  // 🔥 Fetch from backend whenever filters change
+  // Fetch from backend whenever filters change
   useEffect(() => {
     dispatch(
       fetchFoodList({
