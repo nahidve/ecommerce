@@ -312,16 +312,17 @@ const refundOrder = async (req, res) => {
   try {
     const { orderId, amount } = req.body; // amount is optional
 
-    const idempotencyKey = crypto
-      .createHash("sha256")
-      .update(orderId + ":" + (amount || "full"))
-      .digest("hex");
-
     const order = await orderModel.findById(orderId);
 
     if (!order) {
       return res.json({ success: false, message: "Order not found" });
     }
+
+    const refundAttemptCount = (order.refundHistory || []).length;
+    const idempotencyKey = crypto
+      .createHash("sha256")
+      .update(orderId + ":" + (amount || "full") + ":" + refundAttemptCount)
+      .digest("hex");
 
     // ✅ REDIS LOCK (ADD HERE)
     const lockKey = `refund:${orderId}`;

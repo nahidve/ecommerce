@@ -2,6 +2,7 @@
 
 .header {
   position: relative;
+  border-radius: 15px;
   height: 70vh;
   min-height: 500px;
   width: 100%;
@@ -13,6 +14,7 @@
 /* Video styling */
 .header-video {
   position: absolute;
+  
   top: 0;
   left: 0;
   width: 100%;
