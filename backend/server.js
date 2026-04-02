@@ -7,6 +7,7 @@ import foodRouter from "./routes/food.route.js"
 import userRouter from "./routes/user.route.js"
 import cartRouter from "./routes/cart.route.js"
 import orderRouter from "./routes/order.route.js"
+import chatRouter from "./routes/chat.route.js";
 import { connectRedis } from "./config/redis.js"
 import { handleStripeWebhook } from "./controllers/stripeWebhook.controller.js"
 import logger from "./config/logger.js"
@@ -49,6 +50,7 @@ app.use((req, res, next) => {
 })
 
 //api endpoints
+app.use("/api", chatRouter)
 app.use("/api/food", foodRouter)
 app.use("/images", express.static("uploads"))
 app.use("/api/user", userRouter)
